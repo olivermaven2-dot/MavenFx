@@ -4,78 +4,121 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Maven FX PRO Dashboard</title>
+
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
   font-family: Arial;
   background: #0d1117;
   color: #e6edf3;
+  zoom: 0.9;
 }
+
+/* FLOAT BUTTON */
+.floating-btn {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  background: #238636;
+  color: white;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 999;
+}
+
+/* MINI MODE */
+.mini {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50vh;
+  overflow-y: auto;
+  z-index: 998;
+}
+
+/* DASHBOARD */
 .dashboard {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  padding: 15px;
+  gap: 10px;
+  padding: 10px;
   min-height: 100vh;
+  max-width: 500px;
+  margin: auto;
 }
+
 .panel {
   background: #161b22;
-  padding: 15px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 10px;
 }
+
 .full { grid-column: span 2; }
-h2 { margin-bottom: 10px; font-size: 20px; }
+
+h2 { margin-bottom: 8px; font-size: 16px; }
+
 select, button {
   width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border-radius: 8px;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 6px;
   border: none;
-  font-size: 15px;
+  font-size: 13px;
 }
+
 button {
   background: #238636;
   color: white;
   cursor: pointer;
 }
+
 .signal-box {
   text-align: center;
-  font-size: 26px;
+  font-size: 18px;
   font-weight: bold;
-  padding: 20px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 10px;
   background: #0d1117;
 }
+
 .over { color: yellow; }
 .under { color: orange; }
 .enter.over { color: lime; }
 .enter.under { color: red; }
+
 #stream {
-  margin-top: 10px;
+  margin-top: 8px;
   background: #0d1117;
-  padding: 10px;
-  border-radius: 8px;
-  height: 80px;
+  padding: 8px;
+  border-radius: 6px;
+  height: 60px;
   overflow-x: auto;
   white-space: nowrap;
-  font-size: 20px;
+  font-size: 14px;
 }
-.stat { font-size: 18px; margin-top: 8px; }
+
+.stat { font-size: 14px; margin-top: 6px; }
+
 @media (max-width: 768px) {
-  .dashboard { grid-template-columns: 1fr; }
+  body { zoom: 0.85; }
+  .dashboard { grid-template-columns: 1fr; max-width: 100%; }
   .full { grid-column: span 1; }
 }
 </style>
 </head>
+
 <body>
 
-<div class="dashboard">
+<div class="floating-btn" onclick="toggleMini()">⚡</div>
 
-  <!-- CONTROL PANEL -->
+<div id="app" class="dashboard">
+
   <div class="panel">
     <h2>⚙️ Controls</h2>
     <select id="market">
-      <!-- Volatility indices -->
       <option value="R_10">Volatility 10</option>
       <option value="R_25">Volatility 25</option>
       <option value="R_50">Volatility 50</option>
@@ -86,7 +129,6 @@ button {
       <option value="1HZ50V">V50 (1s)</option>
       <option value="1HZ75V">V75 (1s)</option>
       <option value="1HZ100V">V100 (1s)</option>
-      <!-- Jump indices -->
       <option value="JD10">Jump 10</option>
       <option value="JD25">Jump 25</option>
       <option value="JD50">Jump 50</option>
@@ -97,7 +139,6 @@ button {
     <div class="stat">Status: <span id="status">Disconnected</span></div>
   </div>
 
-  <!-- MARKET DATA -->
   <div class="panel">
     <h2>📊 Market Data</h2>
     <div class="stat">Price: <span id="price">-</span></div>
@@ -109,13 +150,11 @@ button {
     <div class="stat">Best Under: <span id="safeUnder">-</span></div>
   </div>
 
-  <!-- SIGNAL PANEL -->
   <div class="panel full">
     <h2>🚨 Signal</h2>
     <div id="signal" class="signal-box">WAIT</div>
   </div>
 
-  <!-- DIGIT STREAM -->
   <div class="panel full">
     <h2>📈 Digit Stream</h2>
     <div id="stream"></div>
@@ -132,6 +171,24 @@ const maxDigits = 50;
 let tickWait = false;
 let lastSignal = "";
 
+/* SOUND */
+function playBeep(){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(800, ctx.currentTime);
+  osc.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.15);
+}
+
+/* MINI MODE */
+function toggleMini(){
+  const app = document.getElementById("app");
+  app.classList.toggle("mini");
+}
+
+/* COMBOS */
 const overCombos = [[1,3],[2,4],[3,5],[4,6],[5,7],[6,8]];
 const underCombos = [[1,6],[2,6],[2,7],[4,7],[5,7]];
 
@@ -145,7 +202,6 @@ function connect(){
   counts.fill(0);
   tickWait=false;
   lastSignal="";
-  document.getElementById("stream").innerText="";
 
   status.innerText="Connecting...";
 
@@ -183,6 +239,7 @@ function updateDigits(d){
     const old=digits.shift();
     counts[old]--;
   }
+
   document.getElementById("stream").innerText=digits.join(" ");
 
   const recent = digits.slice(-10);
@@ -220,13 +277,16 @@ function suggestSafestCombo(){
   document.getElementById("safeUnder").innerText=bestUnder.join("-");
 }
 
+/* 🎯 STRONG FILTER */
+function isStrongSetup(prob, threshold){
+  return prob >= (threshold + 5); // only A+ setups
+}
+
 function analyzeMarket(){
   const signal=document.getElementById("signal");
 
   if(digits.length<15){
-    signal.innerText="⏳ WAIT (Collecting)";
-    signal.className="signal-box";
-    tickWait=false;
+    signal.innerText="⏳ WAIT";
     return;
   }
 
@@ -234,30 +294,47 @@ function analyzeMarket(){
   const cluster=document.getElementById("cluster").innerText;
 
   let overThreshold=80, underThreshold=80;
-  if(cluster.includes("High")) underThreshold=75;
-  if(cluster.includes("Low")) overThreshold=75;
 
-  const safestOver=document.getElementById("safeOver").innerText.split("-").map(Number);
-  const safestUnder=document.getElementById("safeUnder").innerText.split("-").map(Number);
-  const lastDigit=digits[digits.length-1];
-
-  const overSignal=overProb>=overThreshold && !cluster.includes("Low") && safestOver.includes(lastDigit);
-  const underSignal=underProb>=underThreshold && !cluster.includes("High") && safestUnder.includes(lastDigit);
+  const strongestOver = isStrongSetup(overProb, overThreshold);
+  const strongestUnder = isStrongSetup(underProb, underThreshold);
 
   if(tickWait){
-    if(overSignal){ signal.innerText=`🚀 OVER 1 → ENTER (${overProb.toFixed(1)}%)`; signal.className="signal-box enter over"; if(lastSignal!=="over"){lastSignal="over";} }
-    else if(underSignal){ signal.innerText=`🔥 UNDER 8 → ENTER (${underProb.toFixed(1)}%)`; signal.className="signal-box enter under"; if(lastSignal!=="under"){lastSignal="under";} }
-    else{ signal.innerText="⏳ WAIT"; signal.className="signal-box"; lastSignal=""; }
+    if(strongestOver){
+      signal.innerText=`🚀 OVER 1 ENTER (${overProb.toFixed(1)}%)`;
+      signal.className="signal-box enter over";
+      if(lastSignal!=="over"){ playBeep(); lastSignal="over"; }
+    }
+    else if(strongestUnder){
+      signal.innerText=`🔥 UNDER 8 ENTER (${underProb.toFixed(1)}%)`;
+      signal.className="signal-box enter under";
+      if(lastSignal!=="under"){ playBeep(); lastSignal="under"; }
+    }
+    else{
+      signal.innerText="⏳ WAIT";
+      signal.className="signal-box";
+      lastSignal="";
+    }
     tickWait=false;
     return;
   }
 
-  if(overSignal){ signal.innerText=`🚀 OVER 1 SETUP → WAIT 1 TICK`; signal.className="signal-box over"; tickWait=true; }
-  else if(underSignal){ signal.innerText=`🔥 UNDER 8 SETUP → WAIT 1 TICK`; signal.className="signal-box under"; tickWait=true; }
-  else{ signal.innerText="⏳ WAIT"; signal.className="signal-box"; tickWait=false; lastSignal=""; }
+  if(strongestOver){
+    signal.innerText="🚀 STRONG OVER SETUP";
+    signal.className="signal-box over";
+    tickWait=true;
+  }
+  else if(strongestUnder){
+    signal.innerText="🔥 STRONG UNDER SETUP";
+    signal.className="signal-box under";
+    tickWait=true;
+  }
+  else{
+    signal.innerText="⏳ WAIT";
+    signal.className="signal-box";
+    tickWait=false;
+  }
 }
 </script>
 
 </body>
 </html>
-          
