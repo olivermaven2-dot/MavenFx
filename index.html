@@ -153,6 +153,7 @@ button {
   <div class="panel full">
     <h2>🚨 Signal</h2>
     <div id="signal" class="signal-box">WAIT</div>
+    <div id="countdown" class="signal-box" style="margin-top:5px; background:#0d1117; font-size:16px; color:#ccc;"> </div>
   </div>
 
   <div class="panel full">
@@ -170,23 +171,30 @@ const maxDigits = 50;
 
 let tickWait = false;
 let lastSignal = "";
+let lastStrongSetup = ""; 
+let beepReady = true;      
+let countdownInterval = null;
 
-/* SOUND */
-function playBeep(){
+/* SOUND FOR DIFFERENT SIGNALS */
+function playBeep(type){
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
   osc.type = "sine";
-  osc.frequency.setValueAtTime(800, ctx.currentTime);
+
+  switch(type){
+    case "over": osc.frequency.setValueAtTime(900, ctx.currentTime); break;
+    case "under": osc.frequency.setValueAtTime(600, ctx.currentTime); break;
+    case "entry": osc.frequency.setValueAtTime(750, ctx.currentTime); break;
+    default: osc.frequency.setValueAtTime(800, ctx.currentTime);
+  }
+
   osc.connect(ctx.destination);
   osc.start();
   osc.stop(ctx.currentTime + 0.15);
 }
 
 /* MINI MODE */
-function toggleMini(){
-  const app = document.getElementById("app");
-  app.classList.toggle("mini");
-}
+function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
 
 /* COMBOS */
 const overCombos = [[1,3],[2,4],[3,5],[4,6],[5,7],[6,8]];
@@ -197,14 +205,15 @@ function connect(){
   const status = document.getElementById("status");
 
   if(ws) ws.close();
-
   digits=[];
   counts.fill(0);
   tickWait=false;
   lastSignal="";
+  lastStrongSetup="";
+  beepReady=true;
+  if(countdownInterval){ clearInterval(countdownInterval); countdownInterval=null; }
 
   status.innerText="Connecting...";
-
   ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
 
   ws.onopen=()=>{
@@ -217,10 +226,8 @@ function connect(){
     if(data.tick){
       const price=data.tick.quote;
       const lastDigit=parseInt(price.toString().slice(-1));
-
       document.getElementById("price").innerText=price;
       document.getElementById("digit").innerText=lastDigit;
-
       updateDigits(lastDigit);
       calculateProbability();
       suggestSafestCombo();
@@ -232,24 +239,27 @@ function connect(){
   ws.onclose=()=> status.innerText="Disconnected";
 }
 
+/* Auto-connect on market change */
+document.getElementById("market").addEventListener("change", () => {
+    connect();
+});
+
+// Auto-connect immediately on page load
+window.addEventListener("load", () => {
+    connect();
+});
+
 function updateDigits(d){
   digits.push(d);
   counts[d]++;
-  if(digits.length>maxDigits){
-    const old=digits.shift();
-    counts[old]--;
-  }
-
+  if(digits.length>maxDigits){ const old=digits.shift(); counts[old]--; }
   document.getElementById("stream").innerText=digits.join(" ");
-
   const recent = digits.slice(-10);
   const high = recent.filter(x=>x>=7).length;
   const low = recent.filter(x=>x<=1).length;
-
   let cluster="Mid (2-6)";
   if(high>=6) cluster="High (7-9)";
   else if(low>=6) cluster="Low (0-1)";
-
   document.getElementById("cluster").innerText=cluster;
 }
 
@@ -257,10 +267,8 @@ function calculateProbability(){
   const total=digits.length||1;
   const overProb=counts.slice(2).reduce((a,b)=>a+b,0)/total*100;
   const underProb=counts.slice(0,8).reduce((a,b)=>a+b,0)/total*100;
-
   document.getElementById("over").innerText=overProb.toFixed(1)+"%";
   document.getElementById("under").innerText=underProb.toFixed(1)+"%";
-
   return {overProb,underProb};
 }
 
@@ -269,69 +277,103 @@ function scoreCombo(combo){ return combo.reduce((sum,d)=>sum+counts[d],0); }
 function suggestSafestCombo(){
   let bestOver=overCombos[0];
   let bestUnder=underCombos[0];
-
   overCombos.forEach(c=>{ if(scoreCombo(c)>scoreCombo(bestOver)) bestOver=c; });
   underCombos.forEach(c=>{ if(scoreCombo(c)>scoreCombo(bestUnder)) bestUnder=c; });
-
   document.getElementById("safeOver").innerText=bestOver.join("-");
   document.getElementById("safeUnder").innerText=bestUnder.join("-");
 }
 
-/* 🎯 STRONG FILTER */
-function isStrongSetup(prob, threshold){
-  return prob >= (threshold + 5); // only A+ setups
-}
+/* STRONG SETUP + SMART ENTRY + COUNTDOWN */
+function isStrongSetup(prob, threshold){ return prob >= (threshold + 5); }
 
 function analyzeMarket(){
-  const signal=document.getElementById("signal");
-
+  const signal = document.getElementById("signal");
   if(digits.length<15){
-    signal.innerText="⏳ WAIT";
+    signal.innerText = "⏳ WAIT";
+    signal.className = "signal-box";
+    lastStrongSetup = "";
+    beepReady = true; 
+    if(countdownInterval){ clearInterval(countdownInterval); countdownInterval=null; }
     return;
   }
 
-  const {overProb,underProb}=calculateProbability();
-  const cluster=document.getElementById("cluster").innerText;
+  const {overProb, underProb} = calculateProbability();
+  const strongestOver = isStrongSetup(overProb, 80);
+  const strongestUnder = isStrongSetup(underProb, 80);
 
-  let overThreshold=80, underThreshold=80;
+  const cluster = document.getElementById("cluster").innerText;
+  const overClusterOK = (cluster.includes("Mid") || cluster.includes("High"));
+  const underClusterOK = (cluster.includes("Low") || cluster.includes("Mid"));
 
-  const strongestOver = isStrongSetup(overProb, overThreshold);
-  const strongestUnder = isStrongSetup(underProb, underThreshold);
+  const recent = digits.slice(-3);
+  const overTrendOK = recent[2]>=recent[1] && recent[1]>=recent[0];
+  const underTrendOK = recent[2]<=recent[1] && recent[1]<=recent[0];
 
   if(tickWait){
-    if(strongestOver){
-      signal.innerText=`🚀 OVER 1 ENTER (${overProb.toFixed(1)}%)`;
-      signal.className="signal-box enter over";
-      if(lastSignal!=="over"){ playBeep(); lastSignal="over"; }
-    }
-    else if(strongestUnder){
-      signal.innerText=`🔥 UNDER 8 ENTER (${underProb.toFixed(1)}%)`;
-      signal.className="signal-box enter under";
-      if(lastSignal!=="under"){ playBeep(); lastSignal="under"; }
-    }
-    else{
-      signal.innerText="⏳ WAIT";
-      signal.className="signal-box";
+    if((strongestOver && overClusterOK && overTrendOK) || 
+       (strongestUnder && underClusterOK && underTrendOK)){
+
+      const targetSignal = strongestOver 
+        ? `🚀 OVER 1 ENTER (${overProb.toFixed(1)}%)` 
+        : `🔥 UNDER 8 ENTER (${underProb.toFixed(1)}%)`;
+
+      if(!countdownInterval){
+        let seconds=2;
+        const countdownBox = document.getElementById("countdown");
+        countdownBox.innerText = `⏱ Entry in: ${seconds}s`;
+
+        countdownInterval = setInterval(()=>{
+          seconds--;
+          if(seconds>0){ 
+            countdownBox.innerText = `⏱ Entry in: ${seconds}s`; 
+          } else {
+            clearInterval(countdownInterval);
+            countdownInterval=null;
+            countdownBox.innerText='';
+
+            playBeep("entry"); // beep exactly at entry
+
+            document.getElementById("signal").innerText=targetSignal;
+            document.getElementById("signal").className = strongestOver ? "signal-box enter over" : "signal-box enter under";
+            lastSignal = strongestOver ? "over" : "under";
+          }
+        },1000);
+      }
+
+    } else {
+      document.getElementById("countdown").innerText='';
       lastSignal="";
+      tickWait=false;
+      if(countdownInterval){ clearInterval(countdownInterval); countdownInterval=null; }
     }
-    tickWait=false;
     return;
   }
 
   if(strongestOver){
     signal.innerText="🚀 STRONG OVER SETUP";
     signal.className="signal-box over";
+    if(beepReady || lastStrongSetup!=="over"){
+      playBeep("over");
+      beepReady=false;
+      lastStrongSetup="over";
+    }
     tickWait=true;
   }
   else if(strongestUnder){
     signal.innerText="🔥 STRONG UNDER SETUP";
     signal.className="signal-box under";
+    if(beepReady || lastStrongSetup!=="under"){
+      playBeep("under");
+      beepReady=false;
+      lastStrongSetup="under";
+    }
     tickWait=true;
   }
   else{
     signal.innerText="⏳ WAIT";
     signal.className="signal-box";
     tickWait=false;
+    beepReady=true;
   }
 }
 </script>
