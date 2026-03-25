@@ -6,24 +6,136 @@
 <title>Maven FX PRO Dashboard</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Arial; background: #0d1117; color: #e6edf3; zoom: 0.9; }
-.floating-btn { position: fixed; bottom: 15px; right: 15px; background: #238636; color: white; padding: 10px; border-radius: 50%; cursor: pointer; z-index: 999; }
+body { 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  background: linear-gradient(145deg, #0b0f14, #131921);
+  color: #e6edf3; 
+  zoom: 0.9; 
+}
+
+/* Floating button */
+.floating-btn { 
+  position: fixed; 
+  bottom: 15px; 
+  right: 15px; 
+  background: #238636; 
+  color: white; 
+  padding: 12px; 
+  border-radius: 50%; 
+  cursor: pointer; 
+  z-index: 999; 
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transition: transform 0.2s;
+}
+.floating-btn:hover { transform: scale(1.1); }
+
+/* Mini mode */
 .mini { position: fixed; bottom: 0; left: 0; width: 100%; height: 50vh; overflow-y: auto; z-index: 998; }
-.dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; min-height: 100vh; max-width: 500px; margin: auto; }
-.panel { background: #161b22; padding: 10px; border-radius: 10px; }
+
+/* Dashboard grid */
+.dashboard { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 15px; 
+  padding: 15px; 
+  min-height: 100vh; 
+  max-width: 600px; 
+  margin: auto; 
+}
+
+/* Panels */
+.panel { 
+  background: linear-gradient(145deg, #161b22, #1d232c);
+  padding: 15px; 
+  border-radius: 12px; 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  transition: transform 0.2s;
+}
+.panel:hover { transform: translateY(-2px); }
 .full { grid-column: span 2; }
-h2 { margin-bottom: 8px; font-size: 16px; }
-select, button { width: 100%; padding: 8px; margin-top: 8px; border-radius: 6px; border: none; font-size: 13px; }
-button { background: #238636; color: white; cursor: pointer; }
-.signal-box { text-align: center; font-size: 18px; font-weight: bold; padding: 12px; border-radius: 10px; background: #0d1117; }
-.over { color: yellow; }
-.under { color: orange; }
-.enter.over { color: lime; }
-.enter.under { color: red; }
-#stream { margin-top: 8px; background: #0d1117; padding: 8px; border-radius: 6px; height: 60px; overflow-x: auto; white-space: nowrap; font-size: 14px; }
+
+/* Headings */
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 17px; 
+  font-weight: 600; 
+  color: #f0f6fc;
+}
+
+/* Buttons and selects */
+select, button { 
+  width: 100%; 
+  padding: 10px; 
+  margin-top: 8px; 
+  border-radius: 8px; 
+  border: none; 
+  font-size: 14px; 
+}
+button { 
+  background: #238636; 
+  color: white; 
+  cursor: pointer; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  transition: background 0.2s, transform 0.2s;
+}
+button:hover { 
+  background: #2ea54b; 
+  transform: translateY(-2px);
+}
+
+/* Signal box */
+.signal-box { 
+  text-align: center; 
+  font-size: 18px; 
+  font-weight: bold; 
+  padding: 14px; 
+  border-radius: 12px; 
+  background: #0d1117; 
+  box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
+}
+
+/* Colors for signal types */
+.over { color: #ffd700; }
+.under { color: #ff7f50; }
+.enter.over { color: #32cd32; }
+.enter.under { color: #ff4500; }
+
+/* Digit stream */
+#stream { 
+  margin-top: 8px; 
+  background: #0d1117; 
+  padding: 10px; 
+  border-radius: 8px; 
+  height: 60px; 
+  overflow-x: auto; 
+  white-space: nowrap; 
+  font-size: 14px; 
+  box-shadow: inset 0 0 5px rgba(255,255,255,0.1);
+}
+
+/* Stat text */
 .stat { font-size: 14px; margin-top: 6px; }
-.flash { animation: flashAnim 0.8s infinite; font-weight: bold; color: lime; }
+
+/* Flash animation */
+.flash { 
+  animation: flashAnim 0.8s infinite; 
+  font-weight: bold; 
+  color: #32cd32; 
+}
 @keyframes flashAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+/* System title panel */
+.panel.full:first-of-type { 
+  font-size: 22px; 
+  font-weight: 700; 
+  text-align: center; 
+  background: linear-gradient(135deg, #0b0f14, #1e2733);
+  color: #ffd700; 
+  margin-bottom: 15px; 
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   body { zoom: 0.85; }
   .dashboard { grid-template-columns: 1fr; max-width: 100%; }
@@ -33,9 +145,14 @@ button { background: #238636; color: white; cursor: pointer; }
 </head>
 <body>
 
-<div class="floating-btn" onclick="toggleMini()">⚡</div>
+<!-- SYSTEM TITLE -->
+<div class="panel full">
+  💎 Maven FX
+</div>
 
 <div id="app" class="dashboard">
+
+  <div class="floating-btn" onclick="toggleMini()">⚡</div>
 
   <div class="panel">
     <h2>⚙️ Controls</h2>
@@ -98,6 +215,7 @@ button { background: #238636; color: white; cursor: pointer; }
 </div>
 
 <script>
+// Your original JS code remains fully intact below
 let ws;
 let digits = [];
 let counts = Array(10).fill(0);
