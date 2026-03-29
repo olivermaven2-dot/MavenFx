@@ -207,9 +207,23 @@ button:hover {
     <div class="stat">Strongest Entry: <span id="entryStrongest">-</span></div>
   </div>
 
+  <!-- DIGIT STREAM PANEL -->
   <div class="panel full">
     <h2>📈 Digit Stream</h2>
     <div id="stream"></div>
+  </div>
+
+  <!-- MOMENTUM PANEL -->
+  <div class="panel full">
+    <h2>📊 Momentum Score</h2>
+    <div class="stat">Over 1: <span id="momentumOver">0%</span></div>
+    <div style="background:#222; height:10px; border-radius:6px; margin-bottom:6px;">
+      <div id="barOver" style="height:100%; width:0%; background:#32cd32; border-radius:6px;"></div>
+    </div>
+    <div class="stat">Under 8: <span id="momentumUnder">0%</span></div>
+    <div style="background:#222; height:10px; border-radius:6px;">
+      <div id="barUnder" style="height:100%; width:0%; background:#ff4500; border-radius:6px;"></div>
+    </div>
   </div>
 
 </div>
@@ -369,6 +383,27 @@ function calculateProbability(){
   return {overProb, underProb};
 }
 
+// 🔹 Momentum Score
+function calculateMomentumScore(){
+  const last10 = digits.slice(-10);
+  if(last10.length<5) return {over:0, under:0};
+
+  const overPressure = last10.filter(x=>x>=5).length;
+  const underPressure = last10.filter(x=>x<=5).length;
+
+  const overScore = Math.min(100, (overPressure/10)*100);
+  const underScore = Math.min(100, (underPressure/10)*100);
+
+  document.getElementById("momentumOver").innerText = overScore.toFixed(0)+"%";
+  document.getElementById("barOver").style.width = overScore+"%";
+
+  document.getElementById("momentumUnder").innerText = underScore.toFixed(0)+"%";
+  document.getElementById("barUnder").style.width = underScore+"%";
+
+  return {overScore, underScore};
+}
+
+// 🔹 Utilities
 function isStrongSetup(prob){ return prob >= 80; }
 function checkTrend(recent, type){
   if(recent.length < 3) return false;
@@ -385,12 +420,15 @@ function analyzeMarket(){
     signal.innerText="⏳ WAIT";
     signal.className="signal-box";
     tickWait=false;
+    calculateMomentumScore();
     return;
   }
 
   const {overProb, underProb} = calculateProbability();
-  const strongestOver = isStrongSetup(overProb);
-  const strongestUnder = isStrongSetup(underProb);
+  const {overScore, underScore} = calculateMomentumScore();
+
+  const strongestOver = isStrongSetup(overProb) && overScore>=60;
+  const strongestUnder = isStrongSetup(underProb) && underScore>=60;
 
   const cluster = document.getElementById("cluster").innerText;
   const overOK = (cluster.includes("Mid") || cluster.includes("High"));
@@ -437,6 +475,7 @@ function analyzeMarket(){
     signal.className="signal-box";
   }
 }
+
 </script>
 </body>
 </html>
