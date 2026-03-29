@@ -120,7 +120,7 @@ button:hover {
 .flash { 
   animation: flashAnim 0.8s infinite; 
   font-weight: bold; 
-  color: #32cd32; 
+  color: #32cd32;
 }
 @keyframes flashAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
@@ -215,7 +215,6 @@ button:hover {
 </div>
 
 <script>
-// Your original JS code remains fully intact below
 let ws;
 let digits = [];
 let counts = Array(10).fill(0);
@@ -243,7 +242,7 @@ function updateEntryFilter(){
 
   if(lastFive.length < 5) return;
 
-  const highDigits = lastFive.filter(x => x >= 7).length;
+  const highDigits = lastFive.filter(x=>x >= 7).length;
   const hasZero = lastFive.includes(0);
 
   let entryAllowed = false;
@@ -261,8 +260,8 @@ function updateEntryFilter(){
     entryAllowed = highDigits < 3;
     document.getElementById("underFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
     const count4 = lastFive.filter(x=>x===4).length;
-    const count9 = lastFive.filter(x=>x===9).length;
-    strongestDigit = count4 <= count9 ? 4 : 9;
+    const count5 = lastFive.filter(x=>x===5).length;
+    strongestDigit = count4 <= count5 ? 4 : 5;
   }
 
   if(entryAllowed){
@@ -370,7 +369,7 @@ function calculateProbability(){
   return {overProb, underProb};
 }
 
-function isStrongSetup(prob, threshold){ return prob >= (threshold + 5); }
+function isStrongSetup(prob){ return prob >= 80; }
 function checkTrend(recent, type){
   if(recent.length < 3) return false;
   return type==="over"
@@ -390,8 +389,8 @@ function analyzeMarket(){
   }
 
   const {overProb, underProb} = calculateProbability();
-  const strongestOver = isStrongSetup(overProb,80);
-  const strongestUnder = isStrongSetup(underProb,80);
+  const strongestOver = isStrongSetup(overProb);
+  const strongestUnder = isStrongSetup(underProb);
 
   const cluster = document.getElementById("cluster").innerText;
   const overOK = (cluster.includes("Mid") || cluster.includes("High"));
