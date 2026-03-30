@@ -12,8 +12,6 @@ body {
   color: #e6edf3; 
   zoom: 0.9; 
 }
-
-/* Floating button */
 .floating-btn { 
   position: fixed; 
   bottom: 15px; 
@@ -28,11 +26,7 @@ body {
   transition: transform 0.2s;
 }
 .floating-btn:hover { transform: scale(1.1); }
-
-/* Mini mode */
 .mini { position: fixed; bottom: 0; left: 0; width: 100%; height: 50vh; overflow-y: auto; z-index: 998; }
-
-/* Dashboard grid */
 .dashboard { 
   display: grid; 
   grid-template-columns: 1fr 1fr; 
@@ -42,8 +36,6 @@ body {
   max-width: 600px; 
   margin: auto; 
 }
-
-/* Panels */
 .panel { 
   background: linear-gradient(145deg, #161b22, #1d232c);
   padding: 15px; 
@@ -53,16 +45,12 @@ body {
 }
 .panel:hover { transform: translateY(-2px); }
 .full { grid-column: span 2; }
-
-/* Headings */
 h2 { 
   margin-bottom: 10px; 
   font-size: 17px; 
   font-weight: 600; 
   color: #f0f6fc;
 }
-
-/* Buttons and selects */
 select, button { 
   width: 100%; 
   padding: 10px; 
@@ -82,8 +70,6 @@ button:hover {
   background: #2ea54b; 
   transform: translateY(-2px);
 }
-
-/* Signal box */
 .signal-box { 
   text-align: center; 
   font-size: 18px; 
@@ -93,14 +79,10 @@ button:hover {
   background: #0d1117; 
   box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
 }
-
-/* Colors for signal types */
 .over { color: #ffd700; }
 .under { color: #ff7f50; }
 .enter.over { color: #32cd32; }
 .enter.under { color: #ff4500; }
-
-/* Digit stream */
 #stream { 
   margin-top: 8px; 
   background: #0d1117; 
@@ -112,19 +94,13 @@ button:hover {
   font-size: 14px; 
   box-shadow: inset 0 0 5px rgba(255,255,255,0.1);
 }
-
-/* Stat text */
 .stat { font-size: 14px; margin-top: 6px; }
-
-/* Flash animation */
 .flash { 
   animation: flashAnim 0.8s infinite; 
   font-weight: bold; 
   color: #32cd32;
 }
 @keyframes flashAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-
-/* System title panel */
 .panel.full:first-of-type { 
   font-size: 22px; 
   font-weight: 700; 
@@ -134,8 +110,6 @@ button:hover {
   margin-bottom: 15px; 
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
-
-/* Responsive */
 @media (max-width: 768px) {
   body { zoom: 0.85; }
   .dashboard { grid-template-columns: 1fr; max-width: 100%; }
@@ -145,7 +119,6 @@ button:hover {
 </head>
 <body>
 
-<!-- SYSTEM TITLE -->
 <div class="panel full">
   💎 Maven FX
 </div>
@@ -186,14 +159,12 @@ button:hover {
     <div class="stat">Under 8: <span id="under">0%</span></div>
   </div>
 
-  <!-- Signal Setup Panel -->
   <div class="panel full">
     <h2>🚨 Signal</h2>
     <div id="signal" class="signal-box">WAIT</div>
     <div id="countdown" class="signal-box" style="margin-top:5px; background:#0d1117; font-size:16px; color:#ccc;"></div>
   </div>
 
-  <!-- ENTRY FILTER PANEL -->
   <div class="panel full">
     <h2>🛡️ Entry Filter</h2>
     <div class="stat">Last 5 Digits: <span id="last5">-</span></div>
@@ -201,19 +172,16 @@ button:hover {
     <div class="stat">Over 1: <span id="overFilter">-</span></div>
   </div>
 
-  <!-- ENTRY DIGIT PANEL -->
   <div class="panel full">
     <h2>🎯 Entry Digit</h2>
     <div class="stat">Strongest Entry: <span id="entryStrongest">-</span></div>
   </div>
 
-  <!-- DIGIT STREAM PANEL -->
   <div class="panel full">
     <h2>📈 Digit Stream</h2>
     <div id="stream"></div>
   </div>
 
-  <!-- MOMENTUM PANEL -->
   <div class="panel full">
     <h2>📊 Momentum Score</h2>
     <div class="stat">Over 1: <span id="momentumOver">0%</span></div>
@@ -239,7 +207,6 @@ let lastStrongSetup = "";
 let beepReady = true;     
 let countdownInterval = null;
 
-// 🔹 Entry Filter & Strongest Digit
 function updateEntryFilter(){
   const lastFive = digits.slice(-5);
   document.getElementById("last5").innerText = lastFive.join(" ") || "-";
@@ -284,7 +251,6 @@ function updateEntryFilter(){
   }
 }
 
-// 🔹 Beep
 function playBeep(type){
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -346,7 +312,6 @@ function connect(){
 document.getElementById("market").addEventListener("change", connect);
 window.addEventListener("load", connect);
 
-// 🔹 Digits & Cluster
 function updateDigits(d){
   digits.push(d);
   counts[parseInt(d)]++;
@@ -368,7 +333,6 @@ function updateDigits(d){
   document.getElementById("cluster").innerText = cluster;
 }
 
-// 🔹 Probability
 function calculateProbability(){
   const total = digits.length || 1;
   const overCount = counts.slice(2).reduce((a,b)=>a+b,0);
@@ -383,16 +347,17 @@ function calculateProbability(){
   return {overProb, underProb};
 }
 
-// 🔹 Momentum Score
+// 🔹 Momentum Score FIXED
 function calculateMomentumScore(){
   const last10 = digits.slice(-10);
-  if(last10.length<5) return {over:0, under:0};
+  if(last10.length < 5) return {over:0, under:0};
 
-  const overPressure = last10.filter(x=>x>=5).length;
-  const underPressure = last10.filter(x=>x<=5).length;
+  // ✅ Over 1: digits 4-9, Under 8: digits 0-5
+  const overPressure = last10.filter(x => x >= 4 && x <= 9).length;
+  const underPressure = last10.filter(x => x >= 0 && x <= 5).length;
 
-  const overScore = Math.min(100, (overPressure/10)*100);
-  const underScore = Math.min(100, (underPressure/10)*100);
+  const overScore = Math.min(100, (overPressure / 10) * 100);
+  const underScore = Math.min(100, (underPressure / 10) * 100);
 
   document.getElementById("momentumOver").innerText = overScore.toFixed(0)+"%";
   document.getElementById("barOver").style.width = overScore+"%";
@@ -403,7 +368,6 @@ function calculateMomentumScore(){
   return {overScore, underScore};
 }
 
-// 🔹 Utilities
 function isStrongSetup(prob){ return prob >= 80; }
 function checkTrend(recent, type){
   if(recent.length < 3) return false;
@@ -412,7 +376,6 @@ function checkTrend(recent, type){
     : recent[0] >= recent[1] && recent[1] >= recent[2];
 }
 
-// 🔹 Signal Analysis
 function analyzeMarket(){
   const signal = document.getElementById("signal");
 
@@ -458,24 +421,31 @@ function analyzeMarket(){
     return;
   }
 
+  // 🔹 Main Signal with Strong Setup Beep
   if(strongestOver){
     signal.innerText="🚀 STRONG OVER SETUP";
     signal.className="signal-box over";
-    playBeep("over");
     tickWait=true;
-  }
-  else if(strongestUnder){
+    if(beepReady){
+        playBeep("over");
+        beepReady=false;
+        setTimeout(()=>{beepReady=true;},500);
+    }
+  } else if(strongestUnder){
     signal.innerText="🔥 STRONG UNDER SETUP";
     signal.className="signal-box under";
-    playBeep("under");
     tickWait=true;
-  }
-  else{
+    if(beepReady){
+        playBeep("under");
+        beepReady=false;
+        setTimeout(()=>{beepReady=true;},500);
+    }
+  } else {
     signal.innerText="⏳ WAIT";
     signal.className="signal-box";
+    tickWait=false;
   }
 }
-
 </script>
 </body>
 </html>
