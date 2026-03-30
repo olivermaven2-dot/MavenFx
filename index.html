@@ -282,20 +282,28 @@ function updateEntryFilter(){
   document.getElementById("last5").innerText = last5.join(" ");
 
   const sig = document.getElementById("signal").innerText;
-  let entry="-";
   const entryEl = document.getElementById("entryStrongest");
 
-  if(sig.includes("OVER")){
-    entry = !last5.includes(0) ? "ENTER" : "BLOCK";
-    entryEl.innerText = last5.includes(5)?6:5;
-    entryEl.style.color = "#32cd32"; // green
-  }
+  // Default: no entry
+  entryEl.innerText = "-";
+  entryEl.style.color = "#808080"; // grey
 
-  if(sig.includes("UNDER")){
-    const high = last5.filter(x=>x>=7).length;
-    entry = high<3 ? "ENTER" : "BLOCK";
-    entryEl.innerText = last5.includes(4)?9:4;
-    entryEl.style.color = "#32cd32"; // green
+  if(sig.includes("OVER")){
+    // Over 1: no entry if 0 in last 5
+    if(!last5.includes(0)){
+      const strongest = last5.includes(5) ? 6 : 5;
+      entryEl.innerText = strongest;
+      entryEl.style.color = "#32cd32"; // green
+    }
+  } 
+  else if(sig.includes("UNDER")){
+    // Under 8: count digits 7,8,9 in last5
+    const highDigits = last5.filter(d => d >= 7).length;
+    if(highDigits < 3){
+      const strongest = last5.includes(4) ? 9 : 4;
+      entryEl.innerText = strongest;
+      entryEl.style.color = "#32cd32"; // green
+    }
   }
 }
 
