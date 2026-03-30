@@ -202,11 +202,12 @@ let digits = [];
 let counts = Array(10).fill(0);
 const maxDigits = 50;
 let tickWait = false;
-let lastSignal = "";
 let lastStrongSetup = ""; 
 let beepReady = true;     
 let countdownInterval = null;
+let lastSignal = "";
 
+// 🔹 Entry Filter & Strongest Digit
 function updateEntryFilter(){
   const lastFive = digits.slice(-5);
   document.getElementById("last5").innerText = lastFive.join(" ") || "-";
@@ -232,17 +233,15 @@ function updateEntryFilter(){
   if(isOverSetup){
     entryAllowed = !hasZero;
     document.getElementById("overFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
-    const count5 = lastFive.filter(x=>x===5).length;
-    const count6 = lastFive.filter(x=>x===6).length;
-    strongestDigit = count5 <= count6 ? 5 : 6;
+    const candidates = [5,6];
+    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
   }
 
   if(isUnderSetup){
     entryAllowed = highDigits < 3;
     document.getElementById("underFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
-    const count4 = lastFive.filter(x=>x===4).length;
-    const count5 = lastFive.filter(x=>x===5).length;
-    strongestDigit = count4 <= count5 ? 4 : 5;
+    const candidates = [4,9];
+    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
   }
 
   if(entryAllowed){
@@ -251,6 +250,7 @@ function updateEntryFilter(){
   }
 }
 
+// 🔹 Beep Sound
 function playBeep(type){
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -261,6 +261,7 @@ function playBeep(type){
   osc.stop(ctx.currentTime + 0.15);
 }
 
+// 🔹 UI Helpers
 function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
 
 function connect(){
@@ -268,7 +269,7 @@ function connect(){
   const status = document.getElementById("status");
 
   if(ws) ws.close();
-  digits=[]; counts.fill(0); tickWait=false; lastSignal=""; lastStrongSetup=""; beepReady=true;
+  digits=[]; counts.fill(0); tickWait=false; lastStrongSetup=""; beepReady=true;
   if(countdownInterval){ clearInterval(countdownInterval); countdownInterval=null; }
 
   status.innerText="Connecting...";
@@ -283,8 +284,6 @@ function connect(){
     const data = JSON.parse(msg.data);
     if(data.tick){
         const price = data.tick.quote;
-        const market = document.getElementById("market").value;
-
         document.getElementById("price").innerText = price;
 
         let lastDigit;
@@ -312,6 +311,7 @@ function connect(){
 document.getElementById("market").addEventListener("change", connect);
 window.addEventListener("load", connect);
 
+// 🔹 Digits & Clusters
 function updateDigits(d){
   digits.push(d);
   counts[parseInt(d)]++;
@@ -333,6 +333,7 @@ function updateDigits(d){
   document.getElementById("cluster").innerText = cluster;
 }
 
+// 🔹 Probability
 function calculateProbability(){
   const total = digits.length || 1;
   const overCount = counts.slice(2).reduce((a,b)=>a+b,0);
@@ -347,12 +348,11 @@ function calculateProbability(){
   return {overProb, underProb};
 }
 
-// 🔹 Momentum Score FIXED
+// 🔹 Momentum Score
 function calculateMomentumScore(){
   const last10 = digits.slice(-10);
   if(last10.length < 5) return {over:0, under:0};
 
-  // ✅ Over 1: digits 4-9, Under 8: digits 0-5
   const overPressure = last10.filter(x => x >= 4 && x <= 9).length;
   const underPressure = last10.filter(x => x >= 0 && x <= 5).length;
 
@@ -368,84 +368,43 @@ function calculateMomentumScore(){
   return {overScore, underScore};
 }
 
-function isStrongSetup(prob){ return prob >= 80; }
-function checkTrend(recent, type){
-  if(recent.length < 3) return false;
-  return type==="over"
-    ? recent[0] <= recent[1] && recent[1] <= recent[2]
-    : recent[0] >= recent[1] && recent[1] >= recent[2];
-}
-
+// 🔹 Market Analysis & Beep Fix
 function analyzeMarket(){
-  const signal = document.getElementById("signal");
-
-  if(digits.length < 15){
-    signal.innerText="⏳ WAIT";
-    signal.className="signal-box";
-    tickWait=false;
-    calculateMomentumScore();
-    return;
+  if(digits.length<15){ 
+    document.getElementById("signal").innerText="⏳ WAIT"; 
+    document.getElementById("signal").className="signal-box"; 
+    lastSignal="";
+    return; 
   }
 
-  const {overProb, underProb} = calculateProbability();
-  const {overScore, underScore} = calculateMomentumScore();
-
-  const strongestOver = isStrongSetup(overProb) && overScore>=60;
-  const strongestUnder = isStrongSetup(underProb) && underScore>=60;
-
+  const {overProb, underProb}=calculateProbability();
+  const {overScore, underScore}=calculateMomentumScore();
   const cluster = document.getElementById("cluster").innerText;
-  const overOK = (cluster.includes("Mid") || cluster.includes("High"));
-  const underOK = (cluster.includes("Low") || cluster.includes("Mid"));
 
-  const recent = digits.slice(-3);
+  const strongestOver = overProb>=80 && overScore>=60;
+  const strongestUnder = underProb>=80 && underScore>=60;
+  const overOK = cluster.includes("Mid")||cluster.includes("High");
+  const underOK = cluster.includes("Low")||cluster.includes("Mid");
 
-  if(tickWait){
-    if((strongestOver && overOK && checkTrend(recent,"over")) ||
-       (strongestUnder && underOK && checkTrend(recent,"under"))){
-
-        const entryType = strongestOver ? "over" : "under";
-        const lastFive = digits.slice(-5);
-        const entryAllowed = entryType==="over"? !lastFive.includes(0) : lastFive.filter(x=>x>=7).length<3;
-
-        if(entryAllowed){
-          signal.innerText = strongestOver
-            ? `🚀 OVER 1 ENTER (${overProb.toFixed(1)}%)`
-            : `🔥 UNDER 8 ENTER (${underProb.toFixed(1)}%)`;
-          signal.className = strongestOver ? "signal-box enter over" : "signal-box enter under";
-          playBeep("entry");
-        } else {
-          signal.innerText = "⛔ FILTERED (NO ENTRY)";
-          signal.className = "signal-box";
-        }
-    } else tickWait=false;
-    return;
-  }
-
-  // 🔹 Main Signal with Strong Setup Beep
-  if(strongestOver){
-    signal.innerText="🚀 STRONG OVER SETUP";
-    signal.className="signal-box over";
-    tickWait=true;
-    if(beepReady){
-        playBeep("over");
-        beepReady=false;
-        setTimeout(()=>{beepReady=true;},500);
-    }
-  } else if(strongestUnder){
-    signal.innerText="🔥 STRONG UNDER SETUP";
-    signal.className="signal-box under";
-    tickWait=true;
-    if(beepReady){
-        playBeep("under");
-        beepReady=false;
-        setTimeout(()=>{beepReady=true;},500);
-    }
-  } else {
-    signal.innerText="⏳ WAIT";
-    signal.className="signal-box";
-    tickWait=false;
+  if(strongestOver && overOK){ 
+    const newSignal = `OVER 1 SETUP (${overProb.toFixed(1)}%)`;
+    document.getElementById("signal").innerText = `🚀 ${newSignal}`; 
+    document.getElementById("signal").className="signal-box over"; 
+    if(lastSignal!==newSignal){ playBeep("over"); lastSignal=newSignal; }
+  } 
+  else if(strongestUnder && underOK){
+    const newSignal = `UNDER 8 SETUP (${underProb.toFixed(1)}%)`;
+    document.getElementById("signal").innerText = `🔥 ${newSignal}`; 
+    document.getElementById("signal").className="signal-box under";
+    if(lastSignal!==newSignal){ playBeep("under"); lastSignal=newSignal; }
+  } 
+  else{
+    document.getElementById("signal").innerText="⏳ WAIT"; 
+    document.getElementById("signal").className="signal-box";
+    lastSignal="";
   }
 }
 </script>
+
 </body>
 </html>
