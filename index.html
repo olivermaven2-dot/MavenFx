@@ -23,7 +23,9 @@ body {
   cursor: pointer; 
   z-index: 999; 
   box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transition: transform 0.2s;
 }
+.floating-btn:hover { transform: scale(1.1); }
 .mini { position: fixed; bottom: 0; left: 0; width: 100%; height: 50vh; overflow-y: auto; z-index: 998; }
 .dashboard { 
   display: grid; 
@@ -39,87 +41,158 @@ body {
   padding: 15px; 
   border-radius: 12px; 
   box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  transition: transform 0.2s;
 }
+.panel:hover { transform: translateY(-2px); }
 .full { grid-column: span 2; }
-h2 { margin-bottom: 10px; font-size: 17px; }
-select, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: none; }
-button { background: #238636; color: white; cursor: pointer; }
-.signal-box { text-align: center; font-size: 18px; font-weight: bold; padding: 14px; border-radius: 12px; background: #0d1117; }
-#stream { margin-top: 8px; background: #0d1117; padding: 10px; border-radius: 8px; height: 60px; overflow-x: auto; white-space: nowrap; }
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 17px; 
+  font-weight: 600; 
+  color: #f0f6fc;
+}
+select, button { 
+  width: 100%; 
+  padding: 10px; 
+  margin-top: 8px; 
+  border-radius: 8px; 
+  border: none; 
+  font-size: 14px; 
+}
+button { 
+  background: #238636; 
+  color: white; 
+  cursor: pointer; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  transition: background 0.2s, transform 0.2s;
+}
+button:hover { 
+  background: #2ea54b; 
+  transform: translateY(-2px);
+}
+.signal-box { 
+  text-align: center; 
+  font-size: 18px; 
+  font-weight: bold; 
+  padding: 14px; 
+  border-radius: 12px; 
+  background: #0d1117; 
+  box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
+}
+.over { color: #ffd700; }
+.under { color: #ff7f50; }
+.enter.over { color: #32cd32; }
+.enter.under { color: #ff4500; }
+#stream { 
+  margin-top: 8px; 
+  background: #0d1117; 
+  padding: 10px; 
+  border-radius: 8px; 
+  height: 60px; 
+  overflow-x: auto; 
+  white-space: nowrap; 
+  font-size: 14px; 
+  box-shadow: inset 0 0 5px rgba(255,255,255,0.1);
+}
 .stat { font-size: 14px; margin-top: 6px; }
-.flash { animation: flashAnim 0.8s infinite; color: #32cd32; }
+.flash { 
+  animation: flashAnim 0.8s infinite; 
+  font-weight: bold; 
+  color: #32cd32;
+}
 @keyframes flashAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.panel.full:first-of-type { 
+  font-size: 22px; 
+  font-weight: 700; 
+  text-align: center; 
+  background: linear-gradient(135deg, #0b0f14, #1e2733);
+  color: #ffd700; 
+  margin-bottom: 15px; 
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+@media (max-width: 768px) {
+  body { zoom: 0.85; }
+  .dashboard { grid-template-columns: 1fr; max-width: 100%; }
+  .full { grid-column: span 1; }
+}
 </style>
 </head>
 <body>
 
-<div class="panel full">💎 Maven FX</div>
+<div class="panel full">
+  💎 Maven FX
+</div>
 
 <div id="app" class="dashboard">
 
-<div class="floating-btn" onclick="toggleMini()">⚡</div>
+  <div class="floating-btn" onclick="toggleMini()">⚡</div>
 
-<div class="panel">
-<h2>⚙️ Controls</h2>
-<select id="market">
-<option value="R_10">Volatility 10</option>
-<option value="R_25">Volatility 25</option>
-<option value="R_50">Volatility 50</option>
-<option value="R_75">Volatility 75</option>
-<option value="R_100">Volatility 100</option>
-<option value="1HZ10V">V10 (1s)</option>
-<option value="1HZ25V">V25 (1s)</option>
-<option value="1HZ50V">V50 (1s)</option>
-<option value="1HZ75V">V75 (1s)</option>
-<option value="1HZ100V">V100 (1s)</option>
-<option value="JD10">Jump 10</option>
-<option value="JD25">Jump 25</option>
-<option value="JD50">Jump 50</option>
-<option value="JD75">Jump 75</option>
-<option value="JD100">Jump 100</option>
-</select>
-<button onclick="connect()">Connect</button>
-<div class="stat">Status: <span id="status">Disconnected</span></div>
-</div>
+  <div class="panel">
+    <h2>⚙️ Controls</h2>
+    <select id="market">
+      <option value="R_10">Volatility 10</option>
+      <option value="R_25">Volatility 25</option>
+      <option value="R_50">Volatility 50</option>
+      <option value="R_75">Volatility 75</option>
+      <option value="R_100">Volatility 100</option>
+      <option value="1HZ10V">V10 (1s)</option>
+      <option value="1HZ25V">V25 (1s)</option>
+      <option value="1HZ50V">V50 (1s)</option>
+      <option value="1HZ75V">V75 (1s)</option>
+      <option value="1HZ100V">V100 (1s)</option>
+      <option value="JD10">Jump 10</option>
+      <option value="JD25">Jump 25</option>
+      <option value="JD50">Jump 50</option>
+      <option value="JD75">Jump 75</option>
+      <option value="JD100">Jump 100</option>
+    </select>
+    <button onclick="connect()">Connect</button>
+    <div class="stat">Status: <span id="status">Disconnected</span></div>
+  </div>
 
-<div class="panel">
-<h2>📊 Market Data</h2>
-<div class="stat">Price: <span id="price">-</span></div>
-<div class="stat">Last Tick Digit: <span id="digit">-</span></div>
-<div class="stat">Cluster: <span id="cluster">-</span></div>
-<div class="stat">Over 1: <span id="over">0%</span></div>
-<div class="stat">Under 8: <span id="under">0%</span></div>
-</div>
+  <div class="panel">
+    <h2>📊 Market Data</h2>
+    <div class="stat">Price: <span id="price">-</span></div>
+    <div class="stat">Last Tick Digit: <span id="digit">-</span></div>
+    <div class="stat">Cluster: <span id="cluster">-</span></div>
+    <div class="stat">Over 1: <span id="over">0%</span></div>
+    <div class="stat">Under 8: <span id="under">0%</span></div>
+  </div>
 
-<div class="panel full">
-<h2>🚨 Signal</h2>
-<div id="signal" class="signal-box">WAIT</div>
-</div>
+  <div class="panel full">
+    <h2>🚨 Signal</h2>
+    <div id="signal" class="signal-box">WAIT</div>
+    <div id="countdown" class="signal-box" style="margin-top:5px; background:#0d1117; font-size:16px; color:#ccc;"></div>
+  </div>
 
-<div class="panel full">
-<h2>🛡️ Entry Filter</h2>
-<div class="stat">Last 5 Digits: <span id="last5">-</span></div>
-<div class="stat">Under 8: <span id="underFilter">-</span></div>
-<div class="stat">Over 1: <span id="overFilter">-</span></div>
-</div>
+  <div class="panel full">
+    <h2>🛡️ Entry Filter</h2>
+    <div class="stat">Last 5 Digits: <span id="last5">-</span></div>
+    <div class="stat">Under 8: <span id="underFilter">-</span></div>
+    <div class="stat">Over 1: <span id="overFilter">-</span></div>
+  </div>
 
-<div class="panel full">
-<h2>🎯 Entry Digit</h2>
-<div class="stat">Strongest Entry: <span id="entryStrongest">-</span></div>
-</div>
+  <div class="panel full">
+    <h2>🎯 Entry Digit</h2>
+    <div class="stat">Strongest Entry: <span id="entryStrongest">-</span></div>
+  </div>
 
-<div class="panel full">
-<h2>📈 Digit Stream</h2>
-<div id="stream"></div>
-</div>
+  <div class="panel full">
+    <h2>📈 Digit Stream</h2>
+    <div id="stream"></div>
+  </div>
 
-<div class="panel full">
-<h2>📊 Momentum Score</h2>
-<div class="stat">Over 1: <span id="momentumOver">0%</span></div>
-<div id="barOver" style="height:10px;width:0%;background:#32cd32;"></div>
-<div class="stat">Under 8: <span id="momentumUnder">0%</span></div>
-<div id="barUnder" style="height:10px;width:0%;background:#ff4500;"></div>
-</div>
+  <div class="panel full">
+    <h2>📊 Momentum Score</h2>
+    <div class="stat">Over 1: <span id="momentumOver">0%</span></div>
+    <div style="background:#222; height:10px; border-radius:6px; margin-bottom:6px;">
+      <div id="barOver" style="height:100%; width:0%; background:#32cd32; border-radius:6px;"></div>
+    </div>
+    <div class="stat">Under 8: <span id="momentumUnder">0%</span></div>
+    <div style="background:#222; height:10px; border-radius:6px;">
+      <div id="barUnder" style="height:100%; width:0%; background:#ff4500; border-radius:6px;"></div>
+    </div>
+  </div>
 
 </div>
 
@@ -128,12 +201,79 @@ let ws;
 let digits = [];
 let counts = Array(10).fill(0);
 const maxDigits = 50;
+let lastStrongSetup = ""; 
+let beepReady = true;
 let lastSignal = "";
 
-// SPIKE FILTER
-let lastPrice = null;
-const spikeThreshold = 0.5;
+// 🔹 Spike Filter Parameters
+const spikeWindow = 5;    // last N ticks to check
+const spikeThreshold = 3; // price jump considered a spike
 
+// 🔹 Entry Filter & Strongest Digit
+function updateEntryFilter(){
+  const lastFive = digits.slice(-5);
+  document.getElementById("last5").innerText = lastFive.join(" ") || "-";
+
+  const signalText = document.getElementById("signal").innerText;
+  const isOverSetup = signalText.includes("OVER") || signalText.includes("OVER SETUP");
+  const isUnderSetup = signalText.includes("UNDER") || signalText.includes("UNDER SETUP");
+
+  document.getElementById("underFilter").innerText = "-";
+  document.getElementById("overFilter").innerText = "-";
+  const entrySpan = document.getElementById("entryStrongest");
+  entrySpan.innerText = "-";
+  entrySpan.classList.remove("flash");
+
+  if(lastFive.length < 5) return;
+
+  // Spike Filter Logic
+  const recent = digits.slice(-spikeWindow);
+  let spikeDetected = false;
+  for(let i=1;i<recent.length;i++){
+    if(Math.abs(recent[i]-recent[i-1])>=spikeThreshold){
+      spikeDetected = true;
+      break;
+    }
+  }
+
+  const highDigits = lastFive.filter(x=>x >= 7).length;
+  const hasZero = lastFive.includes(0);
+
+  let entryAllowed = false;
+  let strongestDigit = "-";
+
+  if(isOverSetup){
+    entryAllowed = !hasZero && !spikeDetected;
+    document.getElementById("overFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
+    const candidates = [5,6];
+    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
+  }
+
+  if(isUnderSetup){
+    entryAllowed = highDigits < 3 && !spikeDetected;
+    document.getElementById("underFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
+    const candidates = [4,9];
+    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
+  }
+
+  if(entryAllowed){
+    entrySpan.innerText = strongestDigit;
+    entrySpan.classList.add("flash");
+  }
+}
+
+// 🔹 Beep Sound
+function playBeep(type){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(type==="over"?900:type==="under"?600:750, ctx.currentTime);
+  osc.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.15);
+}
+
+// 🔹 UI Helpers
 function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
 
 function connect(){
@@ -141,7 +281,7 @@ function connect(){
   const status = document.getElementById("status");
 
   if(ws) ws.close();
-  digits=[]; counts.fill(0); lastPrice=null;
+  digits=[]; counts.fill(0); lastStrongSetup=""; beepReady=true;
 
   status.innerText="Connecting...";
   ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
@@ -154,50 +294,46 @@ function connect(){
   ws.onmessage = (msg) => {
     const data = JSON.parse(msg.data);
     if(data.tick){
-      const price = data.tick.quote;
-      document.getElementById("price").innerText = price;
+        const price = data.tick.quote;
+        document.getElementById("price").innerText = price;
 
-      // SPIKE FILTER
-      if(lastPrice !== null){
-        const diff = Math.abs(price - lastPrice);
-        if(diff > spikeThreshold){
-          lastPrice = price;
-          return;
+        let lastDigit;
+        if(market.startsWith("R_")){
+            const priceStr = data.tick.quote.toString().replace('.', '');
+            lastDigit = parseInt(priceStr.slice(-1), 10);
+        } else {
+            const priceStr = price.toFixed(2).replace('.', '');
+            lastDigit = parseInt(priceStr.slice(-1), 10);
         }
-      }
-      lastPrice = price;
 
-      let lastDigit;
-      if(market.startsWith("R_")){
-        const str = price.toString().replace('.', '');
-        lastDigit = parseInt(str.slice(-1));
-      } else {
-        const str = price.toFixed(2).replace('.', '');
-        lastDigit = parseInt(str.slice(-1));
-      }
+        document.getElementById("digit").innerText = lastDigit;
 
-      document.getElementById("digit").innerText = lastDigit;
-
-      updateDigits(lastDigit);
-      calculateProbability();
-      analyzeMarket();
-      updateEntryFilter();
+        updateDigits(lastDigit);
+        calculateProbability();
+        calculateMomentumScore();
+        analyzeMarket();
+        updateEntryFilter();
     }
   };
 
-  ws.onerror = () => status.innerText = "Error";
+  ws.onerror = () => status.innerText = "❌ Error";
   ws.onclose = () => status.innerText = "Disconnected";
 }
 
+document.getElementById("market").addEventListener("change", connect);
+window.addEventListener("load", connect);
+
+// 🔹 Digits & Clusters
 function updateDigits(d){
   digits.push(d);
-  counts[d]++;
-  if(digits.length > maxDigits){
-    const old = digits.shift();
-    counts[old]--;
+  counts[parseInt(d)]++;
+  if(digits.length > maxDigits){ 
+    const old = digits.shift(); 
+    counts[parseInt(old)]--;
   }
 
-  document.getElementById("stream").innerHTML = digits.join(" ");
+  document.getElementById("stream").innerHTML =
+    digits.map(x=>x===0?`<span style="color:#00ffff;font-weight:bold;">0</span>`:x).join(" ");
 
   const recent = digits.slice(-10);
   const high = recent.filter(x=>x>=7).length;
@@ -209,13 +345,14 @@ function updateDigits(d){
   document.getElementById("cluster").innerText = cluster;
 }
 
+// 🔹 Probability
 function calculateProbability(){
   const total = digits.length || 1;
-  const over = counts.slice(2).reduce((a,b)=>a+b,0);
-  const under = counts.slice(0,8).reduce((a,b)=>a+b,0);
+  const overCount = counts.slice(2).reduce((a,b)=>a+b,0);
+  const underCount = counts.slice(0,8).reduce((a,b)=>a+b,0);
 
-  const overProb = (over/total)*100;
-  const underProb = (under/total)*100;
+  const overProb = (overCount / total) * 100;
+  const underProb = (underCount / total) * 100;
 
   document.getElementById("over").innerText = overProb.toFixed(1)+"%";
   document.getElementById("under").innerText = underProb.toFixed(1)+"%";
@@ -223,101 +360,62 @@ function calculateProbability(){
   return {overProb, underProb};
 }
 
-function calculateMomentum(){
+// 🔹 Momentum Score
+function calculateMomentumScore(){
   const last10 = digits.slice(-10);
   if(last10.length < 5) return {over:0, under:0};
 
-  const over = last10.filter(x=>x>=4).length;
-  const under = last10.filter(x=>x<=5).length;
+  const overPressure = last10.filter(x => x >= 4 && x <= 9).length;
+  const underPressure = last10.filter(x => x >= 0 && x <= 5).length;
 
-  const o = (over/10)*100;
-  const u = (under/10)*100;
+  const overScore = Math.min(100, (overPressure / 10) * 100);
+  const underScore = Math.min(100, (underPressure / 10) * 100);
 
-  document.getElementById("momentumOver").innerText = o.toFixed(0)+"%";
-  document.getElementById("barOver").style.width = o+"%";
-  document.getElementById("momentumUnder").innerText = u.toFixed(0)+"%";
-  document.getElementById("barUnder").style.width = u+"%";
+  document.getElementById("momentumOver").innerText = overScore.toFixed(0)+"%";
+  document.getElementById("barOver").style.width = overScore+"%";
 
-  return {overScore:o, underScore:u};
+  document.getElementById("momentumUnder").innerText = underScore.toFixed(0)+"%";
+  document.getElementById("barUnder").style.width = underScore+"%";
+
+  return {overScore, underScore};
 }
 
+// 🔹 Market Analysis & Beep
 function analyzeMarket(){
-  if(digits.length<15){
-    document.getElementById("signal").innerText="WAIT";
-    document.getElementById("signal").style.color = "#808080"; // grey
+  if(digits.length<15){ 
+    document.getElementById("signal").innerText="⏳ WAIT"; 
+    document.getElementById("signal").className="signal-box"; 
     lastSignal="";
-    return;
+    return; 
   }
 
   const {overProb, underProb}=calculateProbability();
-  const {overScore, underScore}=calculateMomentum();
+  const {overScore, underScore}=calculateMomentumScore();
   const cluster = document.getElementById("cluster").innerText;
 
   const strongestOver = overProb>=80 && overScore>=60;
   const strongestUnder = underProb>=80 && underScore>=60;
+  const overOK = cluster.includes("Mid")||cluster.includes("High");
+  const underOK = cluster.includes("Low")||cluster.includes("Mid");
 
-  const signalEl = document.getElementById("signal");
-
-  if(strongestOver && !cluster.includes("Low")){
-    const sig=`OVER (${overProb.toFixed(1)}%)`;
-    signalEl.innerText = sig;
-    signalEl.style.color = "#32cd32"; // green
-    if(lastSignal!==sig){ beep(900); lastSignal=sig; }
-  }
-  else if(strongestUnder && !cluster.includes("High")){
-    const sig=`UNDER (${underProb.toFixed(1)}%)`;
-    signalEl.innerText = sig;
-    signalEl.style.color = "#ff4500"; // red
-    if(lastSignal!==sig){ beep(600); lastSignal=sig; }
-  }
+  if(strongestOver && overOK){ 
+    const newSignal = `OVER 1 SETUP (${overProb.toFixed(1)}%)`;
+    document.getElementById("signal").innerText = `🚀 ${newSignal}`; 
+    document.getElementById("signal").className="signal-box over"; 
+    if(lastSignal!==newSignal){ playBeep("over"); lastSignal=newSignal; }
+  } 
+  else if(strongestUnder && underOK){
+    const newSignal = `UNDER 8 SETUP (${underProb.toFixed(1)}%)`;
+    document.getElementById("signal").innerText = `🔥 ${newSignal}`; 
+    document.getElementById("signal").className="signal-box under";
+    if(lastSignal!==newSignal){ playBeep("under"); lastSignal=newSignal; }
+  } 
   else{
-    signalEl.innerText="WAIT";
-    signalEl.style.color = "#808080"; // grey
+    document.getElementById("signal").innerText="⏳ WAIT"; 
+    document.getElementById("signal").className="signal-box";
     lastSignal="";
   }
 }
-
-function updateEntryFilter(){
-  const last5 = digits.slice(-5);
-  document.getElementById("last5").innerText = last5.join(" ");
-
-  const sig = document.getElementById("signal").innerText;
-  const entryEl = document.getElementById("entryStrongest");
-
-  // Default: no entry
-  entryEl.innerText = "-";
-  entryEl.style.color = "#808080"; // grey
-
-  if(sig.includes("OVER")){
-    // Over 1: no entry if 0 in last 5
-    if(!last5.includes(0)){
-      const strongest = last5.includes(5) ? 6 : 5;
-      entryEl.innerText = strongest;
-      entryEl.style.color = "#32cd32"; // green
-    }
-  } 
-  else if(sig.includes("UNDER")){
-    // Under 8: count digits 7,8,9 in last5
-    const highDigits = last5.filter(d => d >= 7).length;
-    if(highDigits < 3){
-      const strongest = last5.includes(4) ? 9 : 4;
-      entryEl.innerText = strongest;
-      entryEl.style.color = "#32cd32"; // green
-    }
-  }
-}
-
-function beep(freq){
-  const ctx = new AudioContext();
-  const osc = ctx.createOscillator();
-  osc.frequency.value=freq;
-  osc.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime+0.15);
-}
-
-document.getElementById("market").addEventListener("change", connect);
-window.onload = connect;
 </script>
 
 </body>
