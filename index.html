@@ -197,238 +197,174 @@ button:hover {
 </div>
 
 <script>
-let ws;
-let digits = [];
-let counts = Array(10).fill(0);
-const maxDigits = 50;
-let tickWait = false;
-let lastStrongSetup = ""; 
-let beepReady = true;     
-let countdownInterval = null;
-let lastSignal = "";
-let spikeDetected = false;
+let ws, digits=[], counts=Array(10).fill(0), maxDigits=50;
+let spikeDetected=false, lastSignal="", beepReady=true;
+const adaptiveWindow=15, spikeFactor=1.7;
 
-// Adaptive Spike Parameters
-const adaptiveWindow = 15;
-const spikeFactor = 1.7;
-
-// 🔹 Entry Filter & Strongest Digit
-function updateEntryFilter(){
-  const lastFive = digits.slice(-5);
-  document.getElementById("last5").innerText = lastFive.join(" ") || "-";
-
-  const signalText = document.getElementById("signal").innerText;
-  const isOverSetup = signalText.includes("OVER") || signalText.includes("OVER SETUP");
-  const isUnderSetup = signalText.includes("UNDER") || signalText.includes("UNDER SETUP");
-
-  document.getElementById("underFilter").innerText = "-";
-  document.getElementById("overFilter").innerText = "-";
-  const entrySpan = document.getElementById("entryStrongest");
-  entrySpan.innerText = "-";
-  entrySpan.classList.remove("flash");
-
-  if(lastFive.length < 5 || spikeDetected) return;
-
-  const highDigits = lastFive.filter(x=>x >= 7).length;
-  const hasZero = lastFive.includes(0);
-
-  let entryAllowed = false;
-  let strongestDigit = "-";
-
-  if(isOverSetup){
-    entryAllowed = !hasZero;
-    document.getElementById("overFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
-    const candidates = [5,6];
-    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
-  }
-
-  if(isUnderSetup){
-    entryAllowed = highDigits < 3;
-    document.getElementById("underFilter").innerText = entryAllowed ? "✅ ENTER" : "⛔ DO NOT ENTER";
-    const candidates = [4,9];
-    strongestDigit = candidates.find(d => !lastFive.includes(d)) || candidates[candidates.length-1];
-  }
-
-  if(entryAllowed){
-    entrySpan.innerText = strongestDigit;
-    entrySpan.classList.add("flash");
-  }
-}
-
-// 🔹 Adaptive Spike Detection
-function detectAdaptiveSpike(lastDigit) {
-    if(digits.length < 2) return false;
-    const recent = digits.slice(-adaptiveWindow);
-    if(recent.length < 2) return false;
-    let diffs = [];
-    for(let i=1;i<recent.length;i++) diffs.push(Math.abs(recent[i]-recent[i-1]));
-    let avgDiff = diffs.reduce((a,b)=>a+b,0)/diffs.length;
-    let threshold = avgDiff * spikeFactor;
-    spikeDetected = Math.abs(lastDigit - digits[digits.length-1]) >= threshold;
-    return spikeDetected;
-}
-
-// 🔹 Beep Sound
+// 🔹 Helpers
+function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
 function playBeep(type){
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(type==="over"?900:type==="under"?600:750, ctx.currentTime);
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const osc=ctx.createOscillator();
+  osc.type="sine";
+  osc.frequency.setValueAtTime(type==="over"?900:type==="under"?600:750,ctx.currentTime);
   osc.connect(ctx.destination);
   osc.start();
-  osc.stop(ctx.currentTime + 0.15);
+  osc.stop(ctx.currentTime+0.15);
 }
 
-// 🔹 UI Helpers
-function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
-
+// 🔹 Connect WS
 function connect(){
-  const market = document.getElementById("market").value;
-  const status = document.getElementById("status");
-
+  const market=document.getElementById("market").value;
+  const status=document.getElementById("status");
   if(ws) ws.close();
-  digits=[]; counts.fill(0); tickWait=false; lastStrongSetup=""; beepReady=true;
-  spikeDetected=false;
-  if(countdownInterval){ clearInterval(countdownInterval); countdownInterval=null; }
+  digits=[]; counts.fill(0); spikeDetected=false; lastSignal=""; beepReady=true;
 
   status.innerText="Connecting...";
-  ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
-
-  ws.onopen = () => {
-    status.innerText = "Connected to " + market;
-    ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
-  };
-
-  ws.onmessage = (msg) => {
-    const data = JSON.parse(msg.data);
+  ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+  ws.onopen=()=>{status.innerText="Connected to "+market; ws.send(JSON.stringify({ticks:market,subscribe:1}));};
+  ws.onmessage=(msg)=>{
+    const data=JSON.parse(msg.data);
     if(data.tick){
-        const price = data.tick.quote;
-        document.getElementById("price").innerText = price;
-
-        let lastDigit;
-        if(market.startsWith("R_")){
-            const priceStr = data.tick.quote.toString().replace('.', '');
-            lastDigit = parseInt(priceStr.slice(-1), 10);
-        } else {
-            const priceStr = price.toFixed(2).replace('.', '');
-            lastDigit = parseInt(priceStr.slice(-1), 10);
-        }
-
-        document.getElementById("digit").innerText = lastDigit;
-
-        updateDigits(lastDigit);
+      const price=data.tick.quote;
+      document.getElementById("price").innerText=price;
+      const lastDigit=parseInt(price.toFixed(2).replace('.','').slice(-1),10);
+      document.getElementById("digit").innerText=lastDigit;
+      updateDigits(lastDigit);
     }
   };
-
-  ws.onerror = () => status.innerText = "❌ Error";
-  ws.onclose = () => status.innerText = "Disconnected";
+  ws.onerror=()=>status.innerText="❌ Error";
+  ws.onclose=()=>status.innerText="Disconnected";
 }
-
 document.getElementById("market").addEventListener("change", connect);
 window.addEventListener("load", connect);
 
-// 🔹 Digits & Clusters
+// 🔹 Digits Update
 function updateDigits(d){
   digits.push(d);
-  counts[parseInt(d)]++;
-  if(digits.length > maxDigits){ 
-    const old = digits.shift(); 
-    counts[parseInt(old)]--;
-  }
+  counts[d]++;
+  if(digits.length>maxDigits){ counts[digits.shift()]--; }
+  document.getElementById("stream").innerHTML=digits.map(x=>x===0?`<span style="color:#00ffff;font-weight:bold;">0</span>`:x).join(" ");
 
-  document.getElementById("stream").innerHTML =
-    digits.map(x=>x===0?`<span style="color:#00ffff;font-weight:bold;">0</span>`:x).join(" ");
-
-  const recent = digits.slice(-10);
-  const high = recent.filter(x=>x>=7).length;
-  const low = recent.filter(x=>x<=1).length;
-
-  let cluster = "Mid (2-6)";
-  if(high >= 6) cluster = "High (7-9)";
-  else if(low >= 6) cluster = "Low (0-1)";
-  document.getElementById("cluster").innerText = cluster;
-
-  // Adaptive Spike
   detectAdaptiveSpike(d);
-
   calculateProbability();
   calculateMomentumScore();
   analyzeMarket();
-  updateEntryFilter();
+  updateCluster();
+  updateEntryFilterAndDigit(); // <-- only after signal
 }
 
-// 🔹 Probability
+// 🔹 Adaptive Spike
+function detectAdaptiveSpike(lastDigit){
+  if(digits.length<2) return false;
+  const recent=digits.slice(-adaptiveWindow);
+  if(recent.length<2) return false;
+  const diffs=[];
+  for(let i=1;i<recent.length;i++) diffs.push(Math.abs(recent[i]-recent[i-1]));
+  const avgDiff=diffs.reduce((a,b)=>a+b,0)/diffs.length;
+  const threshold=avgDiff*spikeFactor;
+  spikeDetected=Math.abs(lastDigit-recent[recent.length-2])>=threshold;
+  return spikeDetected;
+}
+
+// 🔹 Probability & Momentum
 function calculateProbability(){
-  const total = digits.length || 1;
-  const overCount = counts.slice(2).reduce((a,b)=>a+b,0);
-  const underCount = counts.slice(0,8).reduce((a,b)=>a+b,0);
-
-  const overProb = (overCount / total) * 100;
-  const underProb = (underCount / total) * 100;
-
-  document.getElementById("over").innerText = overProb.toFixed(1)+"%";
-  document.getElementById("under").innerText = underProb.toFixed(1)+"%";
-
+  const total=digits.length||1;
+  const overCount=counts.slice(2).reduce((a,b)=>a+b,0);
+  const underCount=counts.slice(0,8).reduce((a,b)=>a+b,0);
+  const overProb=(overCount/total)*100;
+  const underProb=(underCount/total)*100;
+  document.getElementById("over").innerText=overProb.toFixed(1)+"%";
+  document.getElementById("under").innerText=underProb.toFixed(1)+"%";
   return {overProb, underProb};
 }
-
-// 🔹 Momentum Score
 function calculateMomentumScore(){
-  const last10 = digits.slice(-10);
-  if(last10.length < 5) return {over:0, under:0};
-
-  const overPressure = last10.filter(x => x >= 4 && x <= 9).length;
-  const underPressure = last10.filter(x => x >= 0 && x <= 5).length;
-
-  const overScore = Math.min(100, (overPressure / 10) * 100);
-  const underScore = Math.min(100, (underPressure / 10) * 100);
-
-  document.getElementById("momentumOver").innerText = overScore.toFixed(0)+"%";
-  document.getElementById("barOver").style.width = overScore+"%";
-
-  document.getElementById("momentumUnder").innerText = underScore.toFixed(0)+"%";
-  document.getElementById("barUnder").style.width = underScore+"%";
-
+  const last10=digits.slice(-10);
+  if(last10.length<5) return {overScore:0,underScore:0};
+  const overPressure=last10.filter(x=>x>=4 && x<=9).length;
+  const underPressure=last10.filter(x=>x>=0 && x<=5).length;
+  const overScore=Math.min(100,(overPressure/10)*100);
+  const underScore=Math.min(100,(underPressure/10)*100);
+  document.getElementById("momentumOver").innerText=overScore+"%";
+  document.getElementById("barOver").style.width=overScore+"%";
+  document.getElementById("momentumUnder").innerText=underScore+"%";
+  document.getElementById("barUnder").style.width=underScore+"%";
   return {overScore, underScore};
 }
 
-// 🔹 Market Analysis & Beep
+// 🔹 Cluster Calculation
+function updateCluster(){
+  const last5 = digits.slice(-5);
+  if(last5.length === 0) return;
+  const avg = last5.reduce((a,b)=>a+b,0)/last5.length;
+  let cluster="";
+  if(avg <= 3) cluster="Low";
+  else if(avg >=7) cluster="High";
+  else cluster="Mid";
+  document.getElementById("cluster").innerText = cluster;
+  return cluster;
+}
+
+// 🔹 Market Analysis
 function analyzeMarket(){
   if(digits.length<15 || spikeDetected){ 
     document.getElementById("signal").innerText="⏳ WAIT"; 
     document.getElementById("signal").className="signal-box"; 
-    lastSignal="";
-    return; 
+    lastSignal=""; return; 
   }
-
   const {overProb, underProb}=calculateProbability();
   const {overScore, underScore}=calculateMomentumScore();
-  const cluster = document.getElementById("cluster").innerText;
+  const cluster = updateCluster();
 
-  const strongestOver = overProb>=80 && overScore>=60;
-  const strongestUnder = underProb>=80 && underScore>=60;
-  const overOK = cluster.includes("Mid")||cluster.includes("High");
-  const underOK = cluster.includes("Low")||cluster.includes("Mid");
+  let signal="", cls="";
+  if(overProb>=80 && overScore>=60 && overProb>underProb && !cluster.includes("Low")){
+    signal=`OVER 1 SETUP (${overProb.toFixed(1)}%)`;
+    cls="over"; if(lastSignal!==signal) playBeep("over");
+  } else if(underProb>=80 && underScore>=60 && underProb>overProb && !cluster.includes("High")){
+    signal=`UNDER 8 SETUP (${underProb.toFixed(1)}%)`;
+    cls="under"; if(lastSignal!==signal) playBeep("under");
+  } else {
+    signal="WAIT"; cls="";
+  }
+  document.getElementById("signal").innerText=signal; 
+  document.getElementById("signal").className="signal-box "+cls; 
+  lastSignal=signal;
+}
 
-  if(strongestOver && overOK){ 
-    const newSignal = `OVER 1 SETUP (${overProb.toFixed(1)}%)`;
-    document.getElementById("signal").innerText = `🚀 ${newSignal}`; 
-    document.getElementById("signal").className="signal-box over"; 
-    if(lastSignal!==newSignal){ playBeep("over"); lastSignal=newSignal; }
-  } 
-  else if(strongestUnder && underOK){
-    const newSignal = `UNDER 8 SETUP (${underProb.toFixed(1)}%)`;
-    document.getElementById("signal").innerText = `🔥 ${newSignal}`; 
-    document.getElementById("signal").className="signal-box under"; 
-    if(lastSignal!==newSignal){ playBeep("under"); lastSignal=newSignal; }
-  } 
-  else {
-    document.getElementById("signal").innerText="⏳ WAIT"; 
-    document.getElementById("signal").className="signal-box"; 
-    lastSignal="";
+// 🔹 Entry Filter & Strongest Entry (after signal displayed)
+function updateEntryFilterAndDigit(){
+  const last5 = digits.slice(-5);
+  document.getElementById("last5").innerText = last5.join(", ") || "-";
+
+  const signalText = document.getElementById("signal").innerText;
+
+  // Reset
+  document.getElementById("underFilter").innerText="-";
+  document.getElementById("overFilter").innerText="-";
+  document.getElementById("entryStrongest").innerText="-";
+  document.getElementById("entryStrongest").className="";
+
+  if(signalText.includes("OVER 1")){
+    const zeroCount = last5.filter(x => x===0).length;
+    const overAllowed = zeroCount===0;
+    document.getElementById("overFilter").innerText = overAllowed ? "✅ Allowed" : "❌ Blocked";
+    if(overAllowed){
+      const entryDigit = last5.includes(5)?5:last5.includes(6)?6:5;
+      document.getElementById("entryStrongest").innerText = entryDigit;
+      document.getElementById("entryStrongest").className = "enter over";
+    }
+  } else if(signalText.includes("UNDER 8")){
+    const highCount = last5.filter(x => [7,8,9].includes(x)).length;
+    const underAllowed = highCount<3;
+    document.getElementById("underFilter").innerText = underAllowed ? "✅ Allowed" : "❌ Blocked";
+    if(underAllowed){
+      const entryDigit = last5.includes(4)?4:last5.includes(9)?9:4;
+      document.getElementById("entryStrongest").innerText = entryDigit;
+      document.getElementById("entryStrongest").className = "enter under";
+    }
   }
 }
 </script>
 
 </body>
-        </html>
+</html>
