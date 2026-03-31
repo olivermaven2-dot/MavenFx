@@ -57,7 +57,7 @@ select, button {
   margin-top: 8px; 
   border-radius: 8px; 
   border: none; 
-  font-size: 14px; 
+  font-size: 14px;
 }
 button { 
   background: #238636; 
@@ -163,7 +163,6 @@ button:hover {
     <h2>🚨 Signal</h2>
     <div id="signal" class="signal-box">WAIT</div>
     <div id="spikeIndicator" class="signal-box" style="margin-top:5px; background:#0d1117; font-size:16px; color:#ffd700;">-</div>
-    <div id="countdown" class="signal-box" style="margin-top:5px; background:#0d1117; font-size:16px; color:#ccc;"></div>
   </div>
 
   <div class="panel full">
@@ -171,11 +170,6 @@ button:hover {
     <div class="stat">Last 5 Digits: <span id="last5">-</span></div>
     <div class="stat">Under 8: <span id="underFilter">-</span></div>
     <div class="stat">Over 1: <span id="overFilter">-</span></div>
-  </div>
-
-  <div class="panel full">
-    <h2>🎯 Entry Digit</h2>
-    <div class="stat">Strongest Entry: <span id="entryStrongest">-</span></div>
   </div>
 
   <div class="panel full">
@@ -204,17 +198,12 @@ button:hover {
     <div class="stat" id="momentumTrend">Trend: -</div>
   </div>
 
-  <div class="panel full">
-    <h2>📜 Signal History</h2>
-    <div id="history" style="max-height:150px; overflow-y:auto; font-size:14px;"></div>
-  </div>
-
 </div>
 
 <script>
 let ws, digits=[], counts=Array(10).fill(0), maxDigits=50;
 let spikeDetected=false, lastSignal="", beepReady=true;
-const adaptiveWindow=15, spikeFactor=1.7, historyLimit=50;
+const adaptiveWindow=15, spikeFactor=1.7;
 
 // 🔹 Helpers
 function toggleMini(){ document.getElementById("app").classList.toggle("mini"); }
@@ -266,9 +255,8 @@ function updateDigits(d){
   calculateMomentumScore();
   analyzeMarket();
   updateCluster();
-  updateEntryFilterAndDigit();
+  updateEntryFilter();
   updateMomentumGraph();
-  logSignalHistory();
 }
 
 // 🔹 Adaptive Spike
@@ -323,7 +311,7 @@ function updateCluster(){
   return cluster;
 }
 
-// 🔹 Market Analysis (Step 9: Highest Probability)
+// 🔹 Market Analysis (Highest Probability)
 function analyzeMarket(){
   if(digits.length<15){ 
     document.getElementById("signal").innerText="⏳ WAIT"; 
@@ -338,7 +326,6 @@ function analyzeMarket(){
   let overReady = overProb>=80 && overScore>=60 && !cluster.includes("Low");
   let underReady = underProb>=80 && underScore>=60 && !cluster.includes("High");
 
-  // Step 9: Choose highest probability
   if(overReady && underReady){
     if(overProb > underProb){ underReady=false; } 
     else { overReady=false; }
@@ -359,37 +346,23 @@ function analyzeMarket(){
   lastSignal=signal;
 }
 
-// 🔹 Entry Filter & Strongest Entry
-function updateEntryFilterAndDigit(){
+// 🔹 Entry Filter
+function updateEntryFilter(){
   const last5 = digits.slice(-5);
   document.getElementById("last5").innerText = last5.join(", ") || "-";
 
   const signalText = document.getElementById("signal").innerText;
-
-  // Reset
-  document.getElementById("underFilter").innerText="-";
-  document.getElementById("overFilter").innerText="-";
-  document.getElementById("entryStrongest").innerText="-";
-  document.getElementById("entryStrongest").className="";
+  document.getElementById("underFilter").innerText = "-";
+  document.getElementById("overFilter").innerText = "-";
 
   if(signalText.includes("OVER 1")){
     const zeroCount = last5.filter(x => x===0).length;
-    const overAllowed = zeroCount===0;
+    const overAllowed = zeroCount === 0;
     document.getElementById("overFilter").innerText = overAllowed ? "✅ Allowed" : "❌ Blocked";
-    if(overAllowed){
-      const entryDigit = last5.includes(5)?5:last5.includes(6)?6:5;
-      document.getElementById("entryStrongest").innerText = entryDigit;
-      document.getElementById("entryStrongest").className = "enter over";
-    }
   } else if(signalText.includes("UNDER 8")){
-    const highCount = last5.filter(x => x>=7).length;
-    const underAllowed = highCount===0;
+    const highCount = last5.filter(x => x >= 7).length;
+    const underAllowed = highCount === 0;
     document.getElementById("underFilter").innerText = underAllowed ? "✅ Allowed" : "❌ Blocked";
-    if(underAllowed){
-      const entryDigit = last5.includes(4)?4:last5.includes(9)?9:4;
-      document.getElementById("entryStrongest").innerText = entryDigit;
-      document.getElementById("entryStrongest").className = "enter under";
-    }
   }
 }
 
@@ -401,16 +374,6 @@ function updateMomentumGraph(){
   const trend = overScore>underScore?"Up":overScore<underScore?"Down":"Sideways";
   document.getElementById("momentumTrend").innerText="Trend: "+trend;
 }
-
-// 🔹 Signal History
-function logSignalHistory(){
-  const hist=document.getElementById("history");
-  if(lastSignal && (hist.children.length===0 || hist.children[0].innerText!==lastSignal)){
-    const el=document.createElement("div"); el.innerText=lastSignal; hist.prepend(el);
-    while(hist.children.length>historyLimit) hist.removeChild(hist.lastChild);
-  }
-}
 </script>
-
 </body>
 </html>
