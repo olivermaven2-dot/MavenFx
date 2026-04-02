@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Maven FX PRO Dashboard</title>
 <style>
-/* --- STYLES REMAIN THE SAME AS YOUR ORIGINAL --- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(145deg, #0b0f14, #131921); color: #e6edf3; zoom: 0.9; }
 .floating-btn { position: fixed; bottom: 15px; right: 15px; background: #238636; color: white; padding: 12px; border-radius: 50%; cursor: pointer; z-index: 999; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.2s; }
@@ -26,6 +25,15 @@ button:hover { background: #2ea54b; transform: translateY(-2px); }
 .enter.under { color: #ff4500; }
 #stream { margin-top: 8px; background: #0d1117; padding: 10px; border-radius: 8px; height: 60px; overflow-x: auto; white-space: nowrap; font-size: 14px; box-shadow: inset 0 0 5px rgba(255,255,255,0.1); }
 .stat { font-size: 14px; margin-top: 6px; }
+
+/* --- Flash animation for Ultra-Safe signals --- */
+.signal-box.flash.over { animation: flashOver 0.8s infinite; color: #32cd32; font-weight: bold; }
+.signal-box.flash.under { animation: flashUnder 0.8s infinite; color: #ff4500; font-weight: bold; }
+
+/* Keyframes */
+@keyframes flashOver { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
+@keyframes flashUnder { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
+
 .flash { animation: flashAnim 0.8s infinite; font-weight: bold; color: #32cd32; }
 @keyframes flashAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 .panel.full:first-of-type { font-size: 22px; font-weight: 700; text-align: center; background: linear-gradient(135deg, #0b0f14, #1e2733); color: #ffd700; margin-bottom: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -121,43 +129,102 @@ const marketState={};
 const marketWS={};
 markets.forEach(m=>marketState[m]={digits:[],counts:Array(10).fill(0),spikeDetected:false,lastSignal:"",beepReady:true});
 
-// --- Original Calculation Functions (Intact) ---
+// --- Original Calculation Functions ---
 function detectAdaptiveSpike(state){ if(state.digits.length<2)return false; const recent=state.digits.slice(-adaptiveWindow); const diffs=[]; for(let i=1;i<recent.length;i++)diffs.push(Math.abs(recent[i]-recent[i-1])); const avgDiff=diffs.reduce((a,b)=>a+b,0)/diffs.length; const threshold=avgDiff*spikeFactor; state.spikeDetected=Math.abs(recent[recent.length-1]-recent[recent.length-2])>=threshold; return state.spikeDetected; }
 function calculateProbability(state){ const total=state.digits.length||1; const overCount=state.counts.slice(2,10).reduce((a,b)=>a+b,0); const underCount=state.counts.slice(0,8).reduce((a,b)=>a+b,0); return {overProb:(overCount/total)*100,underProb:(underCount/total)*100}; }
 function calculateMomentumScore(state){ const last10=state.digits.slice(-10); if(last10.length<5)return {overScore:0,underScore:0}; const overPressure=last10.filter(x=>x>=2&&x<=9).length; const underPressure=last10.filter(x=>x>=0&&x<=7).length; return {overScore:Math.min(100,(overPressure/10)*100),underScore:Math.min(100,(underPressure/10)*100)}; }
 function updateCluster(state){ const last5=state.digits.slice(-5); if(last5.length===0)return""; const avg=last5.reduce((a,b)=>a+b,0)/last5.length; if(avg<=3)return"Low"; else if(avg>=7)return"High"; else return"Mid"; }
-function updateEntryFilter(state,signalText){ const last5=state.digits.slice(-5); let underAllowed="-", overAllowed="-"; if(signalText.includes("OVER 1")){ overAllowed=last5.filter(x=>x===0).length===0?"✅ Allowed":"❌ Blocked"; }
-else if(signalText.includes("UNDER 8")){ underAllowed=last5.filter(x=>x>=7).length===0?"✅ Allowed":"❌ Blocked"; }
-return {underAllowed, overAllowed, last5}; }
+function updateEntryFilter(state,signalText){ const last5=state.digits.slice(-5); let underAllowed="-", overAllowed="-"; if(signalText.includes("OVER 1")){ overAllowed=last5.filter(x=>x===0).length===0?"✅ Allowed":"❌ Blocked"; } else if(signalText.includes("UNDER 8")){ underAllowed=last5.filter(x=>x>=7).length===0?"✅ Allowed":"❌ Blocked"; } return {underAllowed, overAllowed, last5}; }
 
 // --- Update Display ---
-function updateDisplay(market,price,lastDigit){ const state=marketState[market]; state.digits.push(lastDigit); state.counts[lastDigit]++; if(state.digits.length>maxDigits)state.counts[state.digits.shift()]--;
-// Display only for selected market
-if(document.getElementById("market").value===market){ document.getElementById("price").innerText=price; document.getElementById("digit").innerText=lastDigit; document.getElementById("stream").innerHTML=state.digits.map(x=>x===0?`<span style='color:#00ffff;font-weight:bold;'>0</span>`:x).join(" "); const spike=detectAdaptiveSpike(state); document.getElementById("spikeIndicator").innerText=spike?"⚡ Spike Detected":"-";
-const {overProb,underProb}=calculateProbability(state); document.getElementById("over").innerText=overProb.toFixed(1)+"%"; document.getElementById("under").innerText=underProb.toFixed(1)+"%";
-const {overScore,underScore}=calculateMomentumScore(state); document.getElementById("momentumOver").innerText=overScore+"%"; document.getElementById("barOver").style.width=overScore+"%"; document.getElementById("momentumUnder").innerText=underScore+"%"; document.getElementById("barUnder").style.width=underScore+"%";
-const cluster=updateCluster(state); document.getElementById("cluster").innerText=cluster;
-const {underAllowed,overAllowed,last5}=updateEntryFilter(state,document.getElementById("signal").innerText); document.getElementById("last5").innerText=last5.join(", "); document.getElementById("underFilter").innerText=underAllowed; document.getElementById("overFilter").innerText=overAllowed;
-// Signal Logic
-let signal="WAIT",cls=""; let overReady=overProb>=80&&overScore>=60&&!cluster.includes("Low"); let underReady=underProb>=80&&underScore>=60&&!cluster.includes("High"); if(overReady&&underReady) overProb>underProb?underReady=false:overReady=false;
-if(overReady){ signal=`OVER 1 SETUP (${overProb.toFixed(1)}%)${spike?" ⚡":""}`; cls="over"; if(state.lastSignal!==signal)playBeep("over"); }
-else if(underReady){ signal=`UNDER 8 SETUP (${underProb.toFixed(1)}%)${spike?" ⚡":""}`; cls="under"; if(state.lastSignal!==signal)playBeep("under"); }
-else signal="WAIT"; document.getElementById("signal").innerText=signal; document.getElementById("signal").className="signal-box "+cls; state.lastSignal=signal;
-// Momentum Graph
-document.getElementById("momentumGraphOver").style.width=overScore+"%"; document.getElementById("momentumGraphUnder").style.width=underScore+"%"; const trend=overScore>underScore?"Up":overScore<underScore?"Down":"Sideways"; document.getElementById("momentumTrend").innerText="Trend: "+trend; }}
+function updateDisplay(market,price,lastDigit){
+    const state=marketState[market]; 
+    state.digits.push(lastDigit); 
+    state.counts[lastDigit]++; 
+    if(state.digits.length>maxDigits) state.counts[state.digits.shift()]--;
 
-// --- WebSocket Connection ---
-function connectAllMarkets(){ markets.forEach(market=>{ const ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089"); marketWS[market]=ws; ws.onopen=()=>ws.send(JSON.stringify({ticks:market,subscribe:1})); ws.onmessage=msg=>{ const data=JSON.parse(msg.data); if(data.tick){ const price=data.tick.quote; let lastDigit;
-    
-// --- FIX: Last price last digit matches last digit displayed for Volatility index only ---
-if(market.startsWith("R_")) {
-    const priceStr = price.toString().replace('.', '');
-    lastDigit = parseInt(priceStr[priceStr.length - 1], 10);
-} else if(market.includes("1HZ") || market.includes("JD")) {
-    lastDigit = parseInt(price.toFixed(2).replace('.','').slice(-1),10);
+    if(document.getElementById("market").value===market){
+        document.getElementById("price").innerText=price;
+        document.getElementById("digit").innerText=lastDigit;
+        document.getElementById("stream").innerHTML=state.digits.map(x=>x===0?`<span style='color:#00ffff;font-weight:bold;'>0</span>`:x).join(" ");
+
+        const spike=detectAdaptiveSpike(state);
+        document.getElementById("spikeIndicator").innerText=spike?"⚡ Spike Detected":"-";
+
+        const {overProb,underProb}=calculateProbability(state);
+        document.getElementById("over").innerText=overProb.toFixed(1)+"%";
+        document.getElementById("under").innerText=underProb.toFixed(1)+"%";
+
+        const {overScore,underScore}=calculateMomentumScore(state);
+        document.getElementById("momentumOver").innerText=overScore+"%";
+        document.getElementById("barOver").style.width=overScore+"%";
+        document.getElementById("momentumUnder").innerText=underScore+"%";
+        document.getElementById("barUnder").style.width=underScore+"%";
+
+        const cluster=updateCluster(state);
+        document.getElementById("cluster").innerText=cluster;
+
+        const {underAllowed,overAllowed,last5}=updateEntryFilter(state,document.getElementById("signal").innerText);
+        document.getElementById("last5").innerText=last5.join(", ");
+        document.getElementById("underFilter").innerText=underAllowed;
+        document.getElementById("overFilter").innerText=overAllowed;
+
+        // --- Upgraded Signal Logic ---
+        let signalText="WAIT",cls="";
+        let overReady=overProb>=80&&overScore>=60&&!cluster.includes("Low");
+        let underReady=underProb>=80&&underScore>=60&&!cluster.includes("High");
+        if(overReady&&underReady) overProb>underProb?underReady=false:overReady=false;
+
+        if(overReady){
+            signalText=`OVER 1 ⚡ (${overProb.toFixed(1)}%)`;
+            cls="flash over";
+            if(state.lastSignal!==signalText) playBeep("over");
+        } else if(underReady){
+            signalText=`UNDER 8 ⚡ (${underProb.toFixed(1)}%)`;
+            cls="flash under";
+            if(state.lastSignal!==signalText) playBeep("under");
+        } else if((overProb>=70 && overScore>=50)||(underProb>=70 && underScore>=50)){
+            signalText=`⚠️ CAUTION (${overProb>underProb?'OVER 1':'UNDER 8'})`;
+            cls=overProb>underProb?"over":"under";
+        } else {
+            signalText="WAIT";
+            cls="";
+        }
+
+        document.getElementById("signal").innerText=signalText;
+        document.getElementById("signal").className="signal-box "+cls;
+        state.lastSignal=signalText;
+
+        // Momentum Graph
+        document.getElementById("momentumGraphOver").style.width=overScore+"%";
+        document.getElementById("momentumGraphUnder").style.width=underScore+"%";
+        const trend=overScore>underScore?"Up":overScore<underScore?"Down":"Sideways";
+        document.getElementById("momentumTrend").innerText="Trend: "+trend;
+    }
 }
 
-updateDisplay(market,price,lastDigit); } } }); }
+// --- WebSocket Connection ---
+function connectAllMarkets(){
+    markets.forEach(market=>{
+        const ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+        marketWS[market]=ws;
+        ws.onopen=()=>ws.send(JSON.stringify({ticks:market,subscribe:1}));
+        ws.onmessage=msg=>{
+            const data=JSON.parse(msg.data);
+            if(data.tick){
+                const price=data.tick.quote;
+                let lastDigit;
+                if(market.startsWith("R_")) {
+                    const priceStr = price.toString().replace('.', '');
+                    lastDigit = parseInt(priceStr[priceStr.length - 1], 10);
+                } else if(market.includes("1HZ") || market.includes("JD")) {
+                    lastDigit = parseInt(price.toFixed(2).replace('.','').slice(-1),10);
+                }
+                updateDisplay(market,price,lastDigit);
+            }
+        };
+    });
+}
 
 // --- Connect Button ---
 function connect(){ document.getElementById("status").innerText="Connected"; connectAllMarkets(); }
@@ -166,8 +233,16 @@ function connect(){ document.getElementById("status").innerText="Connected"; con
 window.addEventListener("load",()=>{ document.getElementById("status").innerText="Connected"; connectAllMarkets(); });
 
 // --- Market Switch ---
-document.getElementById("market").addEventListener("change",e=>{ const selected=e.target.value; const state=marketState[selected]; if(state.digits.length>0){ const lastDigit=state.digits[state.digits.length-1]; const lastPrice=parseFloat(document.getElementById("price").innerText)||0; updateDisplay(selected,lastPrice,lastDigit); } });
+document.getElementById("market").addEventListener("change",e=>{
+    const selected=e.target.value;
+    const state=marketState[selected];
+    if(state.digits.length>0){
+        const lastDigit=state.digits[state.digits.length-1];
+        const lastPrice=parseFloat(document.getElementById("price").innerText)||0;
+        updateDisplay(selected,lastPrice,lastDigit);
+    }
+});
 </script>
 
 </body>
-</html>
+        </html>
