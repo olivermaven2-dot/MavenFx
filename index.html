@@ -26,19 +26,33 @@ button:hover { background: #2ea54b; transform: translateY(-2px); }
 #stream { margin-top: 8px; background: #0d1117; padding: 10px; border-radius: 8px; height: 60px; overflow-x: auto; white-space: nowrap; font-size: 14px; box-shadow: inset 0 0 5px rgba(255,255,255,0.1); }
 .stat { font-size: 14px; margin-top: 6px; }
 
-/* Flash animation */
 .signal-box.flash.over { animation: flashOver 0.8s infinite; color: #32cd32; font-weight: bold; }
 .signal-box.flash.under { animation: flashUnder 0.8s infinite; color: #ff4500; font-weight: bold; }
 @keyframes flashOver { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
 @keyframes flashUnder { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
 
-.panel.full:first-of-type { font-size: 22px; font-weight: 700; text-align: center; background: linear-gradient(135deg, #0b0f14, #1e2733); color: #ffd700; margin-bottom: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-@media (max-width: 768px) { body { zoom: 0.85; } .dashboard { grid-template-columns: 1fr; max-width: 100%; } .full { grid-column: span 1; } }
+.panel.full:first-of-type {
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    background: linear-gradient(135deg, #0b0f14, #1e2733);
+    color: #ffd700;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 768px) {
+body { zoom: 0.85; }
+.dashboard { grid-template-columns: 1fr; max-width: 100%; }
+.full { grid-column: span 1; }
+}
 </style>
 </head>
+
 <body>
 
 <div class="panel full">💎 Maven FX</div>
+
 <div id="app" class="dashboard">
   <div class="floating-btn" onclick="toggleMini()">⚡</div>
 
@@ -85,6 +99,11 @@ button:hover { background: #2ea54b; transform: translateY(-2px); }
     <div class="stat">Last 5 Digits: <span id="last5">-</span></div>
     <div class="stat">Under 8: <span id="underFilter">-</span></div>
     <div class="stat">Over 1: <span id="overFilter">-</span></div>
+  </div>
+
+  <div class="panel full">
+    <h2>🎯 Entry Digit</h2>
+    <div class="stat">Recommended: <span id="entryDigit">-</span></div>
   </div>
 
   <div class="panel full">
@@ -158,12 +177,52 @@ function updateCluster(state){
     else return "Mid";
 }
 
+/* 🔥 UPDATED UNDER 8 LOGIC */
 function updateEntryFilter(state,signalText){
     const last5=state.digits.slice(-5);
     let underAllowed="-", overAllowed="-";
-    if(signalText.includes("OVER 1")) overAllowed=last5.filter(x=>x===0).length===0?"✅ Allowed":"❌ Blocked";
-    else if(signalText.includes("UNDER 8")) underAllowed=last5.filter(x=>x>=7).length===0?"✅ Allowed":"❌ Blocked";
+
+    if(signalText.includes("OVER 1"))
+        overAllowed = last5.filter(x=>x===0).length===0 ? "✅ Allowed":"❌ Blocked";
+
+    else if(signalText.includes("UNDER 8"))
+        underAllowed = last5.filter(x=>x>=7).length >= 3
+            ? "❌ Blocked"
+            : "✅ Allowed";
+
     return {underAllowed, overAllowed, last5};
+}
+
+function getStrongestEntryDigit(state, signalText, filter){
+    if(!signalText.includes("⚡")) return "-";
+
+    if(signalText.includes("OVER 1") && filter.overAllowed.includes("Allowed")){
+        const s5 = state.counts[5];
+        const s6 = state.counts[6];
+
+        if(s6 > s5) return 6;
+        if(s5 > s6) return 5;
+
+        for(let i=state.digits.length-1;i>=0;i--){
+            if(state.digits[i]===5) return 5;
+            if(state.digits[i]===6) return 6;
+        }
+    }
+
+    if(signalText.includes("UNDER 8") && filter.underAllowed.includes("Allowed")){
+        const s4 = state.counts[4];
+        const s9 = state.counts[9];
+
+        if(s9 > s4) return 9;
+        if(s4 > s9) return 4;
+
+        for(let i=state.digits.length-1;i>=0;i--){
+            if(state.digits[i]===9) return 9;
+            if(state.digits[i]===4) return 4;
+        }
+    }
+
+    return "-";
 }
 
 function updateDisplay(market, price, lastDigit){
@@ -178,7 +237,7 @@ function updateDisplay(market, price, lastDigit){
     if(document.getElementById("market").value === market){
         document.getElementById("price").innerText = price;
         document.getElementById("digit").innerText = lastDigit;
-        document.getElementById("stream").innerHTML = state.digits.map(x => x===0?`<span style='color:#00ffff;font-weight:bold;'>0</span>`:x).join(" ");
+        document.getElementById("stream").innerHTML = state.digits.join(" ");
 
         const spike = detectAdaptiveSpike(state);
         document.getElementById("spikeIndicator").innerText = spike?"⚡ Spike Detected":"-";
@@ -196,10 +255,15 @@ function updateDisplay(market, price, lastDigit){
         const cluster = updateCluster(state);
         document.getElementById("cluster").innerText = cluster;
 
-        const {underAllowed, overAllowed, last5} = updateEntryFilter(state, document.getElementById("signal").innerText);
+        const {underAllowed, overAllowed, last5} =
+            updateEntryFilter(state, document.getElementById("signal").innerText);
+
         document.getElementById("last5").innerText = last5.join(", ");
         document.getElementById("underFilter").innerText = underAllowed;
         document.getElementById("overFilter").innerText = overAllowed;
+
+        const entryDigit = getStrongestEntryDigit(state, document.getElementById("signal").innerText, {underAllowed, overAllowed});
+        document.getElementById("entryDigit").innerText = entryDigit;
 
         let signalText="WAIT", cls="";
         let overReady = overProb >= 80 && overScore >= 60 && !cluster.includes("Low");
@@ -222,8 +286,7 @@ function updateDisplay(market, price, lastDigit){
 
         document.getElementById("momentumGraphOver").style.width = overScore+"%";
         document.getElementById("momentumGraphUnder").style.width = underScore+"%";
-        const trend = overScore>underScore?"Up":overScore<underScore?"Down":"Sideways";
-        document.getElementById("momentumTrend").innerText = "Trend: "+trend;
+        document.getElementById("momentumTrend").innerText = "Trend: "+(overScore>underScore?"Up":overScore<underScore?"Down":"Sideways");
     }
 }
 
@@ -240,7 +303,7 @@ function connectAllMarkets(){
                 if(market.startsWith("R_")) {
                     const priceStr = price.toString().replace('.', '');
                     lastDigit = parseInt(priceStr[priceStr.length - 1], 10);
-                } else if(market.includes("1HZ") || market.includes("JD")) {
+                } else {
                     lastDigit = parseInt(price.toFixed(2).replace('.','').slice(-1),10);
                 }
                 updateDisplay(market, price, lastDigit);
@@ -250,18 +313,8 @@ function connectAllMarkets(){
 }
 
 function connect(){ document.getElementById("status").innerText="Connected"; connectAllMarkets(); }
-window.addEventListener("load",()=>{ document.getElementById("status").innerText="Connected"; connectAllMarkets(); });
-
-document.getElementById("market").addEventListener("change", e=>{
-    const selected=e.target.value;
-    const state=marketState[selected];
-    if(state.digits.length>0){
-        const lastDigit=state.digits[state.digits.length-1];
-        const lastPrice=parseFloat(document.getElementById("price").innerText)||0;
-        updateDisplay(selected,lastPrice,lastDigit);
-    }
-});
+window.onload=()=>{ document.getElementById("status").innerText="Connected"; connectAllMarkets(); };
 </script>
 
 </body>
-      </html>
+</html>
