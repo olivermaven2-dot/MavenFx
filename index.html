@@ -203,6 +203,18 @@ d=parseInt(clean.slice(-1),10);
 return isNaN(d)?0:d;
 }
 
+/* DIGIT HEAT ENGINE (PHASE 1 FIX) */
+function digitHeat(counts, total){
+let heat = [];
+
+for(let i=0;i<10;i++){
+let freq = (counts[i] / total) * 100;
+heat.push({digit:i, freq});
+}
+
+return heat;
+}
+
 /* AI ENGINE */
 function aiEngine(d){
 
@@ -210,16 +222,16 @@ let score=50;
 let weight=0;
 let reasons=[];
 
-if(d.over>80){score+=10;weight+=10;reasons.push("Over strong");}
-if(d.under>80){score+=10;weight-=10;reasons.push("Under strong");}
+if(d.overHeat>80){score+=10;weight+=10;reasons.push("Over pressure");}
+if(d.underHeat>80){score+=10;weight-=10;reasons.push("Under pressure");}
 
 if(d.overTrend==="UP"){score+=15;weight+=12;reasons.push("Over rising");}
 if(d.underTrend==="UP"){score+=15;weight-=12;reasons.push("Under rising");}
 
-if(d.cluster==="Mid"){score+=10;weight+=5;reasons.push("Stable");}
+if(d.cluster==="Mid"){score+=10;weight+=5;reasons.push("Stable zone");}
 else{score-=10;weight-=5;reasons.push("Volatility");}
 
-if(d.risk){score-=10;weight-=8;reasons.push("Risk");}
+if(d.risk){score-=10;weight-=8;reasons.push("Risk detected");}
 
 let decision="WAIT";
 if(score>=75)decision="CONFIRM";
@@ -253,13 +265,15 @@ let avg=last5.reduce((a,b)=>a+b,0)/last5.length;
 let cluster=avg<3?"Low":avg>7?"High":"Mid";
 document.getElementById("cluster").innerText=cluster;
 
-/* probability */
+/* HEAT MODEL */
 let total=s.digits.length||1;
-let over=(s.digits.filter(x=>x>=2).length/total)*100;
-let under=(s.digits.filter(x=>x<=7).length/total)*100;
+let heat = digitHeat(s.counts, total);
 
-document.getElementById("over").innerText=over.toFixed(1)+"%";
-document.getElementById("under").innerText=under.toFixed(1)+"%";
+let overHeat = heat.filter(x => x.digit >= 2).reduce((a,b)=>a+b.freq,0);
+let underHeat = heat.filter(x => x.digit <= 7).reduce((a,b)=>a+b.freq,0);
+
+document.getElementById("over").innerText=overHeat.toFixed(1)+"%";
+document.getElementById("under").innerText=underHeat.toFixed(1)+"%";
 
 /* momentum */
 let last10=s.digits.slice(-10);
@@ -277,10 +291,10 @@ overM>underM?"Trend: Up":"Trend: Down";
 
 /* AI */
 let ai=aiEngine({
-over,
-under,
+overHeat,
+underHeat,
 overTrend:overM>underM?"UP":"DOWN",
-underTrend:underM>overM?"UP":"DOWN",
+underTrend:overM<underM?"UP":"DOWN",
 cluster,
 risk:last5.includes(0)||last5.filter(x=>x>=7).length>=3
 });
@@ -290,37 +304,23 @@ document.getElementById("aiDecision").innerText=ai.decision;
 document.getElementById("aiReason").innerText=ai.reasons;
 document.getElementById("aiWeight").innerText=ai.weight;
 
-/* SIGNAL WITH STRENGTH */
-let adjustedOver=over+ai.weight;
-let adjustedUnder=under-ai.weight;
-
+/* SIGNAL */
 let signal="WAIT";
 let strength="";
 
 if(ai.weight > 8 && ai.score >= 70){
-if(adjustedOver>80 && overM>60 && cluster!=="Low"){
 signal="OVER 1 ⚡";
 strength="STRONG";
 beep("over");
 }
-}
 else if(ai.weight < -8 && ai.score >= 70){
-if(adjustedUnder>80 && underM>60 && cluster!=="High"){
 signal="UNDER 8 ⚡";
 strength="STRONG";
 beep("under");
 }
-}
-
-if(signal==="WAIT" && ai.score >= 60){
-if(ai.weight > 5){
-signal="OVER 1 ⚡";
+else if(ai.score >= 60){
+signal = ai.weight > 5 ? "OVER 1 ⚡" : ai.weight < -5 ? "UNDER 8 ⚡" : "WAIT";
 strength="WEAK";
-}
-else if(ai.weight < -5){
-signal="UNDER 8 ⚡";
-strength="WEAK";
-}
 }
 
 document.getElementById("signal").innerText =
@@ -358,4 +358,4 @@ window.onload=connect;
 </script>
 
 </body>
-  </html>
+</html>
