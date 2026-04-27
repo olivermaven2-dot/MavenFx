@@ -66,22 +66,19 @@ h2 { font-size: 17px; margin-bottom: 10px; }
   overflow:hidden;
 }
 
-#graphOver, #graphUnder {
-  position:absolute;
-  top:0;
-  left:0;
-  height:100%;
-  transition:0.2s;
-}
-
 #graphOver {
-  background:#32cd32;
+  height:100%;
   width:0%;
+  background:#32cd32;
 }
 
 #graphUnder {
-  background:#ff4500;
+  height:100%;
   width:0%;
+  background:#ff4500;
+  position:absolute;
+  top:0;
+  left:0;
   mix-blend-mode:screen;
 }
 </style>
@@ -101,11 +98,13 @@ h2 { font-size: 17px; margin-bottom: 10px; }
 <option value="R_50">Vol 50</option>
 <option value="R_75">Vol 75</option>
 <option value="R_100">Vol 100</option>
+
 <option value="1HZ10V">V10 (1s)</option>
 <option value="1HZ25V">V25 (1s)</option>
 <option value="1HZ50V">V50 (1s)</option>
 <option value="1HZ75V">V75 (1s)</option>
 <option value="1HZ100V">V100 (1s)</option>
+
 <option value="JD10">Jump 10</option>
 <option value="JD25">Jump 25</option>
 <option value="JD50">Jump 50</option>
@@ -122,7 +121,6 @@ h2 { font-size: 17px; margin-bottom: 10px; }
 <div class="stat">Price: <span id="price">-</span></div>
 <div class="stat">Digit: <span id="digit">-</span></div>
 <div class="stat">Cluster: <span id="cluster">-</span></div>
-<div class="stat">Regime: <span id="regime">-</span></div>
 <div class="stat">Over 1: <span id="over">0%</span></div>
 <div class="stat">Under 8: <span id="under">0%</span></div>
 </div>
@@ -131,8 +129,8 @@ h2 { font-size: 17px; margin-bottom: 10px; }
 <h2>🧠 AI GATEKEEPER</h2>
 <div class="stat">Score: <span id="aiScore">-</span></div>
 <div class="stat">Decision: <span id="aiDecision">-</span></div>
-<div class="stat">Weight: <span id="aiWeight">0</span></div>
 <div class="stat">Reason: <span id="aiReason">-</span></div>
+<div class="stat">AI Weight: <span id="aiWeight">0</span></div>
 </div>
 
 <div class="panel full">
@@ -159,7 +157,7 @@ h2 { font-size: 17px; margin-bottom: 10px; }
 </div>
 
 <div class="panel full">
-<h2>📊 Trend Graph</h2>
+<h2>📊 Trend</h2>
 <div class="graph">
   <div id="graphOver"></div>
   <div id="graphUnder"></div>
@@ -173,196 +171,184 @@ h2 { font-size: 17px; margin-bottom: 10px; }
 
 let audioCtx=null;
 function beep(type){
-if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
+if(!audioCtx){
+audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+}
 const o=audioCtx.createOscillator();
 const g=audioCtx.createGain();
-o.connect(g);g.connect(audioCtx.destination);
-o.frequency.value=type==="over"?880:520;
+o.connect(g); g.connect(audioCtx.destination);
+o.frequency.value = type==="over"?880:520;
 g.gain.value=0.08;
-o.start();o.stop(audioCtx.currentTime+0.15);
+o.start();
+o.stop(audioCtx.currentTime+0.15);
 }
 
 const markets=["R_10","R_25","R_50","R_75","R_100","1HZ10V","1HZ25V","1HZ50V","1HZ75V","1HZ100V","JD10","JD25","JD50","JD75","JD100"];
+
 const state={};
-markets.forEach(m=>state[m]={digits:[]});
+markets.forEach(m=>state[m]={digits:[],counts:Array(10).fill(0)});
 
 function getDigit(m,p){
 let str=String(p);
 let d;
-if(m.startsWith("1HZ")||m.startsWith("JD")){
+
+if(m.startsWith("1HZ") || m.startsWith("JD")){
 let clean=Number(str).toFixed(2).replace(".","");
 d=parseInt(clean.slice(-1),10);
 }else{
 let clean=str.replace(".","");
 d=parseInt(clean.slice(-1),10);
 }
+
 return isNaN(d)?0:d;
 }
 
-function weightedProb(arr){
-let overW=0, underW=0, totalW=0;
-let decay=0.9;
-let n=arr.length;
-
-for(let i=0;i<n;i++){
-let digit=arr[i];
-let weight=Math.pow(decay, n-1-i);
-
-if(digit>=2) overW+=weight;
-if(digit<=7) underW+=weight;
-totalW+=weight;
-}
-
-return {
-over:(overW/totalW)*100,
-under:(underW/totalW)*100
-};
-}
-
+/* AI ENGINE */
 function aiEngine(d){
-let score=50, weight=0;
+
+let score=50;
+let weight=0;
 let reasons=[];
 
-if(d.over>80){score+=10;weight+=10;reasons.push("Strong Over pressure");}
-if(d.under>80){score+=10;weight-=10;reasons.push("Strong Under pressure");}
+if(d.over>80){score+=10;weight+=10;reasons.push("Over strong");}
+if(d.under>80){score+=10;weight-=10;reasons.push("Under strong");}
 
-if(d.overTrend==="UP"){score+=15;weight+=12;reasons.push("Over momentum rising");}
-if(d.underTrend==="UP"){score+=15;weight-=12;reasons.push("Under momentum rising");}
+if(d.overTrend==="UP"){score+=15;weight+=12;reasons.push("Over rising");}
+if(d.underTrend==="UP"){score+=15;weight-=12;reasons.push("Under rising");}
 
-if(d.cluster==="Mid"){score+=10;weight+=5;reasons.push("Stable cluster");}
-else{score-=10;weight-=5;reasons.push("Extreme cluster");}
+if(d.cluster==="Mid"){score+=10;weight+=5;reasons.push("Stable");}
+else{score-=10;weight-=5;reasons.push("Volatility");}
 
-if(d.risk){score-=10;weight-=8;reasons.push("Volatility risk");}
-
-if(d.regime==="TRENDING"){score+=15;reasons.push("Trending market");}
-if(d.regime==="RANGE"){score-=5;reasons.push("Range market");}
-if(d.regime==="VOLATILE"){score-=15;weight=0;reasons.push("Volatile zone");}
+if(d.risk){score-=10;weight-=8;reasons.push("Risk");}
 
 let decision="WAIT";
-if(score>=65)decision="CONFIRM";
-else if(score>=55)decision="WEAK";
+if(score>=75)decision="CONFIRM";
+else if(score>=60)decision="WEAK";
 else decision="BLOCK";
 
-return {score,decision,weight,reasons};
+return {score,decision,reasons:reasons.join(" | "),weight};
 }
-
-let lastSignal="WAIT";
 
 function update(m,p,d){
 
 let s=state[m];
 s.digits.push(d);
-if(s.digits.length>50)s.digits.shift();
+s.counts[d]++;
+
+if(s.digits.length>50){
+let r=s.digits.shift();
+s.counts[r]--;
+}
 
 if(document.getElementById("market").value!==m) return;
 
-let last5=s.digits.slice(-5);
-let last10=s.digits.slice(-10);
+document.getElementById("price").innerText=p;
+document.getElementById("digit").innerText=d;
+document.getElementById("stream").innerText=s.digits.join(" ");
 
+let last5=s.digits.slice(-5);
+
+/* cluster */
 let avg=last5.reduce((a,b)=>a+b,0)/last5.length;
 let cluster=avg<3?"Low":avg>7?"High":"Mid";
+document.getElementById("cluster").innerText=cluster;
 
-let w=weightedProb(s.digits);
+/* probability */
+let total=s.digits.length||1;
+let over=(s.digits.filter(x=>x>=2).length/total)*100;
+let under=(s.digits.filter(x=>x<=7).length/total)*100;
 
-let over=w.over;
-let under=w.under;
+document.getElementById("over").innerText=over.toFixed(1)+"%";
+document.getElementById("under").innerText=under.toFixed(1)+"%";
 
+/* momentum */
+let last10=s.digits.slice(-10);
 let overM=(last10.filter(x=>x>=2).length/10)*100;
 let underM=(last10.filter(x=>x<=7).length/10)*100;
 
-let regime="RANGE";
-if(Math.abs(over-under)>20)regime="TRENDING";
-if(last5.includes(0)&&last5.filter(x=>x>=7).length>=3)regime="VOLATILE";
+document.getElementById("overBar").style.width=overM+"%";
+document.getElementById("underBar").style.width=underM+"%";
 
 document.getElementById("graphOver").style.width=overM+"%";
 document.getElementById("graphUnder").style.width=underM+"%";
 
 document.getElementById("trend").innerText=
-overM>underM?"Trend: Up":overM<underM?"Trend: Down":"Trend: Sideways";
+overM>underM?"Trend: Up":"Trend: Down";
 
+/* AI */
 let ai=aiEngine({
 over,
 under,
 overTrend:overM>underM?"UP":"DOWN",
 underTrend:underM>overM?"UP":"DOWN",
 cluster,
-risk:last5.includes(0)||last5.filter(x=>x>=7).length>=3,
-regime
+risk:last5.includes(0)||last5.filter(x=>x>=7).length>=3
 });
 
 document.getElementById("aiScore").innerText=ai.score;
 document.getElementById("aiDecision").innerText=ai.decision;
+document.getElementById("aiReason").innerText=ai.reasons;
 document.getElementById("aiWeight").innerText=ai.weight;
-document.getElementById("aiReason").innerText=ai.reasons.join(", ");
 
-document.getElementById("price").innerText=p;
-document.getElementById("digit").innerText=d;
-document.getElementById("cluster").innerText=cluster;
-document.getElementById("regime").innerText=regime;
-
-document.getElementById("over").innerText=over.toFixed(1)+"%";
-document.getElementById("under").innerText=under.toFixed(1)+"%";
-
-document.getElementById("stream").innerText=s.digits.slice(-30).join(" ");
-
-document.getElementById("overBar").style.width=Math.min(100,overM)+"%";
-document.getElementById("underBar").style.width=Math.min(100,underM)+"%";
-
-let hasZero=last5.includes(0);
-let highDigits=last5.filter(x=>x>=7).length;
-
-document.getElementById("last5").innerText=last5.join(" ");
+/* SIGNAL WITH STRENGTH */
+let adjustedOver=over+ai.weight;
+let adjustedUnder=under-ai.weight;
 
 let signal="WAIT";
 let strength="";
 
-if(regime!=="VOLATILE"){
-
-if(ai.score>=70 && ai.weight>3){
+if(ai.weight > 8 && ai.score >= 70){
+if(adjustedOver>80 && overM>60 && cluster!=="Low"){
 signal="OVER 1 ⚡";
 strength="STRONG";
 beep("over");
 }
-
-else if(ai.score>=70 && ai.weight<-3){
+}
+else if(ai.weight < -8 && ai.score >= 70){
+if(adjustedUnder>80 && underM>60 && cluster!=="High"){
 signal="UNDER 8 ⚡";
 strength="STRONG";
 beep("under");
 }
+}
 
-else if(ai.score>=60){
-signal = ai.weight>0 ? "OVER 1 ⚡" : "UNDER 8 ⚡";
+if(signal==="WAIT" && ai.score >= 60){
+if(ai.weight > 5){
+signal="OVER 1 ⚡";
 strength="WEAK";
 }
-
+else if(ai.weight < -5){
+signal="UNDER 8 ⚡";
+strength="WEAK";
+}
 }
 
-lastSignal=signal;
-
-// ✅ FIXED SIGNAL DISPLAY
 document.getElementById("signal").innerText =
-signal==="WAIT" ? "WAIT" : signal + " (" + strength + ")";
+signal==="WAIT" ? "WAIT" : signal + " ("+strength+")";
 
-if(lastSignal!=="WAIT"){
-if(lastSignal.includes("OVER")){
-document.getElementById("overFilter").innerText=hasZero?"Blocked":"Allowed";
-document.getElementById("underFilter").innerText="-";
-}
-else if(lastSignal.includes("UNDER")){
-document.getElementById("underFilter").innerText=highDigits>=3?"Blocked":"Allowed";
-document.getElementById("overFilter").innerText="-";
-}
-}
+/* FILTER */
+document.getElementById("last5").innerText=last5.join(",");
+
+document.getElementById("overFilter").innerText=
+signal.includes("OVER")?(last5.includes(0)?"Blocked":"Allowed"):"-";
+
+document.getElementById("underFilter").innerText=
+signal.includes("UNDER")?(last5.filter(x=>x>=7).length>=3?"Blocked":"Allowed"):"-";
 }
 
 function connect(){
 document.getElementById("status").innerText="Connected";
+
 markets.forEach(m=>{
 let ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+
 ws.onopen=()=>ws.send(JSON.stringify({ticks:m,subscribe:1}));
+
 ws.onmessage=e=>{
 let d=JSON.parse(e.data);
-if(d.tick) update(m,d.tick.quote,getDigit(m,d.tick.quote));
+if(d.tick){
+update(m,d.tick.quote,getDigit(m,d.tick.quote));
+}
 };
 });
 }
@@ -372,4 +358,4 @@ window.onload=connect;
 </script>
 
 </body>
-</html>
+  </html>
