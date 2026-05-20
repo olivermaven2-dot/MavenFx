@@ -186,8 +186,9 @@ o.stop(audioCtx.currentTime+0.15);
 const markets=["R_10","R_25","R_50","R_75","R_100","1HZ10V","1HZ25V","1HZ50V","1HZ75V","1HZ100V","JD10","JD25","JD50","JD75","JD100"];
 
 const state={};
-markets.forEach(m=>state[m]={digits:[],counts:Array(10).fill(0)});
+markets.forEach(m=>state[m]={digits:[]});
 
+/* DIGIT EXTRACTION */
 function getDigit(m,p){
 let str=String(p);
 let d;
@@ -199,20 +200,36 @@ d=parseInt(clean.slice(-1),10);
 let clean=str.replace(".","");
 d=parseInt(clean.slice(-1),10);
 }
-
 return isNaN(d)?0:d;
 }
 
-/* DIGIT HEAT ENGINE (PHASE 1 FIX) */
-function digitHeat(counts, total){
-let heat = [];
+/* =========================
+   PHASE 1 ADAPTIVE HEAT ENGINE
+========================= */
 
-for(let i=0;i<10;i++){
-let freq = (counts[i] / total) * 100;
-heat.push({digit:i, freq});
+function digitHeat(digits){
+
+let heat = Array(10).fill(0);
+let totalWeight = 0;
+
+for(let i=0;i<digits.length;i++){
+
+let digit = digits[i];
+
+/* newest = strongest weight */
+let weight = (i+1)/digits.length;
+weight = Math.pow(weight, 1.8);
+
+heat[digit] += weight;
+totalWeight += weight;
+
 }
 
-return heat;
+return heat.map((v,d)=>({
+digit:d,
+freq: totalWeight ? (v/totalWeight)*100 : 0
+}));
+
 }
 
 /* AI ENGINE */
@@ -241,16 +258,13 @@ else decision="BLOCK";
 return {score,decision,reasons:reasons.join(" | "),weight};
 }
 
+/* UPDATE ENGINE */
 function update(m,p,d){
 
 let s=state[m];
-s.digits.push(d);
-s.counts[d]++;
 
-if(s.digits.length>50){
-let r=s.digits.shift();
-s.counts[r]--;
-}
+s.digits.push(d);
+if(s.digits.length>50)s.digits.shift();
 
 if(document.getElementById("market").value!==m) return;
 
@@ -265,24 +279,23 @@ let avg=last5.reduce((a,b)=>a+b,0)/last5.length;
 let cluster=avg<3?"Low":avg>7?"High":"Mid";
 document.getElementById("cluster").innerText=cluster;
 
-/* HEAT MODEL */
-let total=s.digits.length||1;
-let heat = digitHeat(s.counts, total);
+/* PHASE 1 HEAT */
+let heat=digitHeat(s.digits);
 
-let overHeat = heat.filter(x => x.digit >= 2).reduce((a,b)=>a+b.freq,0);
-let underHeat = heat.filter(x => x.digit <= 7).reduce((a,b)=>a+b.freq,0);
+let overHeat=heat.filter(x=>x.digit>=2).reduce((a,b)=>a+b.freq,0);
+let underHeat=heat.filter(x=>x.digit<=7).reduce((a,b)=>a+b.freq,0);
 
 document.getElementById("over").innerText=overHeat.toFixed(1)+"%";
 document.getElementById("under").innerText=underHeat.toFixed(1)+"%";
 
 /* momentum */
 let last10=s.digits.slice(-10);
+
 let overM=(last10.filter(x=>x>=2).length/10)*100;
 let underM=(last10.filter(x=>x<=7).length/10)*100;
 
 document.getElementById("overBar").style.width=overM+"%";
 document.getElementById("underBar").style.width=underM+"%";
-
 document.getElementById("graphOver").style.width=overM+"%";
 document.getElementById("graphUnder").style.width=underM+"%";
 
@@ -293,12 +306,13 @@ overM>underM?"Trend: Up":"Trend: Down";
 let ai=aiEngine({
 overHeat,
 underHeat,
-overTrend:overM>underM?"UP":"DOWN",
-underTrend:overM<underM?"UP":"DOWN",
+overTrend: overM>underM?"UP":"DOWN",
+underTrend: overM<underM?"UP":"DOWN",
 cluster,
-risk:last5.includes(0)||last5.filter(x=>x>=7).length>=3
+risk: last5.includes(0) || last5.filter(x=>x>=7).length>=3
 });
 
+/* UI */
 document.getElementById("aiScore").innerText=ai.score;
 document.getElementById("aiDecision").innerText=ai.decision;
 document.getElementById("aiReason").innerText=ai.reasons;
@@ -308,23 +322,25 @@ document.getElementById("aiWeight").innerText=ai.weight;
 let signal="WAIT";
 let strength="";
 
-if(ai.weight > 8 && ai.score >= 70){
-signal="OVER 1 ⚡";
-strength="STRONG";
-beep("over");
+if(ai.weight>8 && ai.score>=70){
+signal="OVER 1 ⚡"; strength="STRONG"; beep("over");
 }
-else if(ai.weight < -8 && ai.score >= 70){
-signal="UNDER 8 ⚡";
-strength="STRONG";
-beep("under");
+else if(ai.weight<-8 && ai.score>=70){
+signal="UNDER 8 ⚡"; strength="STRONG"; beep("under");
 }
-else if(ai.score >= 60){
-signal = ai.weight > 5 ? "OVER 1 ⚡" : ai.weight < -5 ? "UNDER 8 ⚡" : "WAIT";
+else if(ai.score>=60){
+signal = ai.weight>5 ? "OVER 1 ⚡" : ai.weight<-5 ? "UNDER 8 ⚡" : "WAIT";
 strength="WEAK";
 }
 
-document.getElementById("signal").innerText =
-signal==="WAIT" ? "WAIT" : signal + " ("+strength+")";
+/* SIGNAL UI */
+let box=document.getElementById("signal");
+box.innerText=signal==="WAIT"?"WAIT":signal+" ("+strength+")";
+box.className="signal-box";
+
+if(signal.includes("OVER") && strength==="STRONG") box.style.background="#0d2f1a";
+else if(signal.includes("UNDER") && strength==="STRONG") box.style.background="#331111";
+else box.style.background="#0d1117";
 
 /* FILTER */
 document.getElementById("last5").innerText=last5.join(",");
@@ -334,20 +350,24 @@ signal.includes("OVER")?(last5.includes(0)?"Blocked":"Allowed"):"-";
 
 document.getElementById("underFilter").innerText=
 signal.includes("UNDER")?(last5.filter(x=>x>=7).length>=3?"Blocked":"Allowed"):"-";
+
 }
 
+/* CONNECT */
 function connect(){
 document.getElementById("status").innerText="Connected";
 
 markets.forEach(m=>{
 let ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
 
-ws.onopen=()=>ws.send(JSON.stringify({ticks:m,subscribe:1}));
+ws.onopen=()=>{
+ws.send(JSON.stringify({ticks:m,subscribe:1}));
+};
 
 ws.onmessage=e=>{
-let d=JSON.parse(e.data);
-if(d.tick){
-update(m,d.tick.quote,getDigit(m,d.tick.quote));
+let data=JSON.parse(e.data);
+if(data.tick){
+update(m,data.tick.quote,getDigit(m,data.tick.quote));
 }
 };
 });
@@ -358,4 +378,4 @@ window.onload=connect;
 </script>
 
 </body>
-</html>
+  </html>
